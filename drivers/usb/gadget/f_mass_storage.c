@@ -2273,7 +2273,7 @@ static int get_next_command(struct fsg_common *common)
 		if (rc)
 			return rc;
 	}
-
+receive_again:
 	/* Queue a request to read a Bulk-only CBW */
 	set_bulk_out_req_length(common, bh, US_BULK_CB_WRAP_LEN);
 	if (!start_out_transfer(common, bh))
@@ -2285,7 +2285,10 @@ static int get_next_command(struct fsg_common *common)
 	 * can reuse it for the next filling.  No need to advance
 	 * next_buffhd_to_fill.
 	 */
-
+	if (bh->outreq->actual == 0) {
+		bh->state = BUF_STATE_EMPTY;
+		goto receive_again;
+	}
 	/* Wait for the CBW to arrive */
 	while (bh->state != BUF_STATE_FULL) {
 		rc = sleep_thread(common);
