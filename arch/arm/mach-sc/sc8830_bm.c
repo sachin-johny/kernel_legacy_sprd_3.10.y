@@ -613,18 +613,19 @@ int sci_bm_set_point(enum sci_bm_index bm_index, enum sci_bm_chn chn,
 	/* if monitor ddr addr, it needs addr wrap*/
 	if(cfg->addr_min >= 0x80000000){
 		if(ddr_size == 0x1fffffff)//512M
-			bm_st_info.bm_mask = 0xE0000000;
+			bm_store_vale[bm_index].bm_mask = 0xE0000000;
 		else if(ddr_size == 0x3fffffff)//1G
-			bm_st_info.bm_mask = 0xC0000000;
+			bm_store_vale[bm_index].bm_mask = 0xC0000000;
 		else// >= 4G, do not need mask
-			bm_st_info.bm_mask = 0x00000000;
-	}
+			bm_store_vale[bm_index].bm_mask = 0x00000000;
+	}else
+		bm_store_vale[bm_index].bm_mask = 0x00000000;
 #endif
 
 	if (bm_index < AHB_BM0_DAP_A7_DMA) {
-		bm_reg->addr_min = cfg->addr_min & (~bm_st_info.bm_mask);
-		bm_reg->addr_max = cfg->addr_max & (~bm_st_info.bm_mask);
-		bm_reg->addr_msk = bm_st_info.bm_mask;
+		bm_reg->addr_min = cfg->addr_min & (~bm_store_vale[bm_index].bm_mask);
+		bm_reg->addr_max = cfg->addr_max & (~bm_store_vale[bm_index].bm_mask);
+		bm_reg->addr_msk = bm_store_vale[bm_index].bm_mask;
 
 		/* the interrupt just trigger by addr range for axi
 		 * busmonitor, so set the data range difficult to
@@ -654,9 +655,9 @@ int sci_bm_set_point(enum sci_bm_index bm_index, enum sci_bm_chn chn,
 		bm_reg->intc |= BM_INT_EN | BM_CHN_EN;
 
 	} else {
-		bm_reg->addr_min = cfg->addr_min & (~bm_st_info.bm_mask);
-		bm_reg->addr_max = cfg->addr_max & (~bm_st_info.bm_mask);
-		bm_reg->addr_msk = bm_st_info.bm_mask;
+		bm_reg->addr_min = cfg->addr_min & (~bm_store_vale[bm_index].bm_mask);
+		bm_reg->addr_max = cfg->addr_max & (~bm_store_vale[bm_index].bm_mask);
+		bm_reg->addr_msk = bm_store_vale[bm_index].bm_mask;
 		bm_reg->data_min_l = cfg->data_min_l;
 		bm_reg->data_min_h = cfg->data_min_h;
 		bm_reg->data_max_l = cfg->data_max_l;
@@ -834,8 +835,8 @@ static ssize_t sci_bm_axi_dbg_show(struct device *dev,
 
 	for(bm_index = AXI_BM0_CA7; bm_index < AHB_BM0_DAP_A7_DMA; bm_index++){
 		reg_addr = __sci_get_bm_base(bm_index);
-		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG)) + (0x80000000 & bm_st_info.bm_mask);
-		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG)) + (0x80000000 & bm_st_info.bm_mask);
+		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG)) + (0x80000000 & bm_store_vale[bm_index].bm_mask);
+		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG)) + (0x80000000 & bm_store_vale[bm_index].bm_mask);
 		sprintf(chn_info, "%d	0x%08X	0x%08X	%s\n", bm_index, str_addr, end_addr, bm_chn_name[bm_index].chn_name);
 		strcat(info_buf, chn_info);
 	}
@@ -919,8 +920,8 @@ static ssize_t sci_bm_ahb_dbg_show(struct device *dev,
 
 	for(bm_index = AHB_BM0_DAP_A7_DMA; bm_index < BM_SIZE; bm_index++){
 		reg_addr = __sci_get_bm_base(bm_index);
-		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG)) + (0x80000000 & bm_st_info.bm_mask);
-		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG)) + (0x80000000 & bm_st_info.bm_mask);
+		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG)) + (0x80000000 & bm_store_vale[bm_index].bm_mask);
+		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG)) + (0x80000000 & bm_store_vale[bm_index].bm_mask);
 		str_data = __raw_readl((volatile void *)(reg_addr + AXI_BM_DATA_MIN_L_REG));
 		end_data = __raw_readl((volatile void *)(reg_addr + AXI_BM_DATA_MAX_L_REG));
 		chn_sel = __sci_bm_get_chn_sel(bm_index);
@@ -1035,7 +1036,7 @@ static ssize_t sci_bm_occur_show(struct device *dev,
 	char occ_info[96] = {};
 	char chn_info[96*10] = {};
 
-	for(bm_index = AXI_BM0_CA7; bm_index <= BM_SIZE; bm_index++){
+	for(bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++){
 		if(debug_bm_int_info[bm_index].msk_addr != 0){
 			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n id 0x%X\n",
 				bm_chn_name[bm_index].chn_name,
@@ -1428,7 +1429,7 @@ static int sci_bm_resume(struct platform_device *pdev)
 				return ret;
 		}
 	}
-	return ret;
+	return 0;
 }
 
 static int sci_bm_probe(struct platform_device *pdev)
@@ -1624,7 +1625,7 @@ static long sci_bm_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 			__raw_writel(BM_CHANNEL_ENABLE_FLAGE, (volatile void *)(REG_PUB_APB_BUSMON_CFG));
 			break;
 		default:
-		return -EINVAL;
+			return -EINVAL;
 	}
 	return 0;
 }
@@ -1643,8 +1644,8 @@ static struct miscdevice bm_misc = {
 };
 
 static const struct of_device_id bm_of_match[] = {
-        { .compatible = "sprd,sprd_bm", },
-        { }
+	{ .compatible = "sprd,sprd_bm", },
+	{ }
 };
 
 static struct platform_driver sprd_bm_driver = {

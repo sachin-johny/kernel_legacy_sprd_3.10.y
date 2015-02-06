@@ -229,7 +229,6 @@ struct bm_state_info{
 	bool bm_dfs_off_st;
 	bool bm_panic_st;
 	bool bm_stack_st;
-	u32 bm_mask;
 };
 static struct bm_state_info bm_st_info;
 
@@ -288,6 +287,7 @@ struct bm_chn_def_val {
 	u32 end_addr;
 	u32 min_data;
 	u32 max_data;
+	u32 bm_mask;
 	u32 mode;
 	u32 chn_sel;
 };
