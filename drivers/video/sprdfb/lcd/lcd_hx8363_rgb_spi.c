@@ -28,10 +28,13 @@
 { \
 	spi_send_data((data & 0xFF));\
 }
+
+#ifdef CONFIG_FB_LOW_RES_SIMU
 int lcd_hx8363_display_width  = 480 ;   /*lcd-display_width*/
 int lcd_hx8363_display_height = 854 ;
 EXPORT_SYMBOL(lcd_hx8363_display_width);
 EXPORT_SYMBOL(lcd_hx8363_display_height);
+#endif
 
 static int32_t hx8363_init(struct panel_spec *self)
 {
@@ -446,13 +449,18 @@ struct panel_cfg lcd_hx8363_rgb_spi = {
 	.panel = &lcd_panel_hx8363_rgb_spi_spec,
 };
 static int __init lcd_hx8363_rgb_spi_init(void){
+
+#ifdef CONFIG_FB_LOW_RES_SIMU
       lcd_panel_hx8363_rgb_spi_spec.display_height = lcd_hx8363_display_height;
       lcd_panel_hx8363_rgb_spi_spec.display_width  = lcd_hx8363_display_width;
+#endif
+
 	return sprdfb_panel_register(&lcd_hx8363_rgb_spi);
 }
 
 //parser cmdline arg "lcd_res=xxx,xxx"
 static int __init lcd_hx8363_rgb_spi_disp_resolution_modify(char *str){
+#ifdef CONFIG_FB_LOW_RES_SIMU
      char a[5];
      char b[5];
      int i = 0;
@@ -469,6 +477,9 @@ static int __init lcd_hx8363_rgb_spi_disp_resolution_modify(char *str){
           lcd_hx8363_display_width  = (a[0]-48)*100+(a[1]-48)*10+(a[2]-48);
           lcd_hx8363_display_height = (b[0]-48)*100+(b[1]-48)*10+(b[2]-48);
      }
+#else
+     printk("please set CONFIG_FB_LOW_RES_SIMU=y to use 'lcd_res' in cmdline! \n");
+#endif
      return 1;
 }
 __setup("lcd_res=", lcd_hx8363_rgb_spi_disp_resolution_modify);
