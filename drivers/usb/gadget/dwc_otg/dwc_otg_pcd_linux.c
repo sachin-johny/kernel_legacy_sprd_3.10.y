@@ -184,7 +184,7 @@ static void monitor_setup_transfer(unsigned long para)
 	if (suspend_count > 5) {
 		pr_info("Reset USB Controller...");
 		dwc_udc_shutdown();
-		mdelay(12000);
+		mdelay(500);
 		dwc_udc_startup();
 	}
 }
