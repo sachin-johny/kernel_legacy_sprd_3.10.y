@@ -42,55 +42,54 @@
 
 #define WIFI_MEM_BLOCK_NUM   (2)
 
-typedef struct
-{
-        int            status;
-        unsigned char *mem;
-}m_mem_t;
+typedef struct {
+	int status;
+	unsigned char *mem;
+} m_mem_t;
 
-static m_mem_t wifi_mem[WIFI_MEM_BLOCK_NUM] = {0};
+static m_mem_t wifi_mem[WIFI_MEM_BLOCK_NUM] = { 0 };
+
 unsigned char *wifi_256k_alloc(void)
 {
-	unsigned char *p= NULL;
+	unsigned char *p = NULL;
 	int i;
-	for(i=0; i< WIFI_MEM_BLOCK_NUM; i++)
-	{
-		if( (0 == wifi_mem[i].status) &&  (NULL != wifi_mem[i].mem) )
-		{
+	for (i = 0; i < WIFI_MEM_BLOCK_NUM; i++) {
+		if ((0 == wifi_mem[i].status) && (NULL != wifi_mem[i].mem)) {
 			p = wifi_mem[i].mem;
 			wifi_mem[i].status = 1;
-			printk("\001" "0" "[wifi_256k_alloc][%d][0x%x]\n", i, wifi_mem[i].mem );
+			printk("\001" "0" "[wifi_256k_alloc][%d][0x%x]\n", i,
+			       wifi_mem[i].mem);
 			break;
 		}
 	}
 	return p;
 }
+
 EXPORT_SYMBOL_GPL(wifi_256k_alloc);
 
 int wifi_256k_free(unsigned char *mem)
 {
 	int i;
-	for(i=0; i< WIFI_MEM_BLOCK_NUM; i++)
-	{
-		if(mem == wifi_mem[i].mem)
-		{
+	for (i = 0; i < WIFI_MEM_BLOCK_NUM; i++) {
+		if (mem == wifi_mem[i].mem) {
 			wifi_mem[i].status = 0;
-			printk("\001" "0" "[wifi_256k_free][%d][0x%x]\n", i, wifi_mem[i].mem );
+			printk("\001" "0" "[wifi_256k_free][%d][0x%x]\n", i,
+			       wifi_mem[i].mem);
 			return 0;
 		}
 	}
 	return -1;
 }
+
 EXPORT_SYMBOL_GPL(wifi_256k_free);
 
 static int sprdwl_mem_alloc(void)
 {
 	int i;
 	printk("[%s]\n", __func__);
-	for(i = 0; i < WIFI_MEM_BLOCK_NUM; i++)
-	{
-		wifi_mem[i].mem = kmalloc( 256*1024, GFP_ATOMIC);
-		printk("\001" "0" "[wifi_mem][%d][0x%x]\n", i, wifi_mem[i].mem );
+	for (i = 0; i < WIFI_MEM_BLOCK_NUM; i++) {
+		wifi_mem[i].mem = kmalloc(256 * 1024, GFP_ATOMIC);
+		printk("\001" "0" "[wifi_mem][%d][0x%x]\n", i, wifi_mem[i].mem);
 	}
 	return 0;
 }
@@ -100,4 +99,3 @@ arch_initcall(sprdwl_mem_alloc);
 MODULE_AUTHOR("jinglong.chen");
 MODULE_DESCRIPTION("256k mem alloc");
 MODULE_LICENSE("GPL");
-

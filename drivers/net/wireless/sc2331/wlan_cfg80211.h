@@ -50,8 +50,7 @@
 #define MAX_SCAN_FRAME_BUF_NUM       (30)
 #define LTE_CONCUR_REQ               (100)
 
-enum wlan_mode 
-{
+enum wlan_mode {
 	ITM_NONE_MODE,
 	ITM_STATION_MODE,
 	ITM_AP_MODE,
@@ -60,9 +59,8 @@ enum wlan_mode
 	ITM_P2P_GO_MODE,
 };
 
-enum WPS_TYPE
-{
-	WPS_REQ_IE=1,
+enum WPS_TYPE {
+	WPS_REQ_IE = 1,
 	WPS_ASSOC_IE,
 	P2P_ASSOC_IE,
 	P2P_BEACON_IE,
@@ -72,8 +70,7 @@ enum WPS_TYPE
 	P2P_BEACON_IE_TAIL
 };
 
-enum wlan_state
-{
+enum wlan_state {
 	ITM_UNKOWN = 0,
 	ITM_SCANNING,
 	ITM_SCAN_ABORTING,
@@ -82,60 +79,70 @@ enum wlan_state
 	ITM_CONNECTED
 };
 
-struct hostap_conf
-{
+struct hostap_conf {
 	char wpa_psk[128];
 	unsigned int len;
 };
 
-typedef struct android_wifi_priv_cmd
-{
+typedef struct android_wifi_priv_cmd {
 	char *buf;
 	int used_len;
 	int total_len;
 } android_wifi_priv_cmd;
 
-typedef struct
-{
-	unsigned char  live;
-	unsigned char  keep;
+typedef struct {
+	unsigned char live;
+	unsigned char keep;
 	unsigned short channel;
-	signed   short signal;
+	signed short signal;
 	unsigned short msa_len;
-	unsigned char  ssid[33];
-	unsigned char  bssid[6];
-	unsigned char  msa[1024];
-}buf_scan_frame_t;
+	unsigned char ssid[33];
+	unsigned char bssid[6];
+	unsigned char msa[1024];
+} buf_scan_frame_t;
 
-typedef struct
-{
-    unsigned int  size;
-}lte_concur_data_t;
+typedef struct {
+	unsigned int size;
+} lte_concur_data_t;
 
-typedef struct
-{
+typedef struct {
 	u32 n_reg_rules;
 	char alpha2[2];
 	struct ieee80211_reg_rule reg_rules[];
-}wlan_ieee80211_regdomain;
+} wlan_ieee80211_regdomain;
 
-extern void cfg80211_report_connect_result(unsigned char vif_id, unsigned char *pData, int len);
-extern void cfg80211_report_disconnect_done(unsigned char vif_id, unsigned char *pData, int len);
-extern void cfg80211_report_scan_done(unsigned char vif_id, unsigned char *pData, int len, bool aborted);
-extern void cfg80211_report_mgmt_deauth(unsigned char vif_id, unsigned char *data, unsigned short len);
-extern void cfg80211_report_mgmt_disassoc(unsigned char vif_id, unsigned char *data, unsigned short len );
-extern void cfg80211_report_remain_on_channel_expired(unsigned char vif_id, unsigned char *data, unsigned short len);
-extern void cfg80211_report_station(unsigned char vif_id, unsigned char *data, unsigned short len );
-extern void cfg80211_report_frame(unsigned char vif_id, unsigned char *data, unsigned short len);
-extern void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData, int len);
-extern void cfg80211_report_mic_failure(unsigned char vif_id, unsigned char *pdata, int len);
-extern int lte_concur_proc_open(struct inode *inode, struct file *filp)  ;
+extern void cfg80211_report_connect_result(unsigned char vif_id,
+					   unsigned char *pData, int len);
+extern void cfg80211_report_disconnect_done(unsigned char vif_id,
+					    unsigned char *pData, int len);
+extern void cfg80211_report_scan_done(unsigned char vif_id,
+				      unsigned char *pData, int len,
+				      bool aborted);
+extern void cfg80211_report_mgmt_deauth(unsigned char vif_id,
+					unsigned char *data,
+					unsigned short len);
+extern void cfg80211_report_mgmt_disassoc(unsigned char vif_id,
+					  unsigned char *data,
+					  unsigned short len);
+extern void cfg80211_report_remain_on_channel_expired(unsigned char vif_id,
+						      unsigned char *data,
+						      unsigned short len);
+extern void cfg80211_report_station(unsigned char vif_id, unsigned char *data,
+				    unsigned short len);
+extern void cfg80211_report_frame(unsigned char vif_id, unsigned char *data,
+				  unsigned short len);
+extern void cfg80211_report_scan_frame(unsigned char vif_id,
+				       unsigned char *pData, int len);
+extern void cfg80211_report_mic_failure(unsigned char vif_id,
+					unsigned char *pdata, int len);
+extern int lte_concur_proc_open(struct inode *inode, struct file *filp);
 extern int lte_concur_proc_release(struct inode *inode, struct file *filp);
-extern ssize_t lte_concur_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
-extern void cfg80211_report_cqm_low(unsigned char vif_id,
-					unsigned char *pdata, int len);
-extern void cfg80211_report_cqm_high(unsigned char vif_id,
-					unsigned char *pdata, int len);
+extern ssize_t lte_concur_proc_ioctl(struct file *filp, unsigned int cmd,
+				     unsigned long arg);
+extern void cfg80211_report_cqm_low(unsigned char vif_id, unsigned char *pdata,
+				    int len);
+extern void cfg80211_report_cqm_high(unsigned char vif_id, unsigned char *pdata,
+				     int len);
 extern void cfg80211_report_cqm_beacon_loss(unsigned char vif_id,
-					unsigned char *pdata, int len);
+					    unsigned char *pdata, int len);
 #endif

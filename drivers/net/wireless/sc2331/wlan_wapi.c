@@ -538,7 +538,7 @@ unsigned short wlan_rx_wapi_decryption(wlan_vif_t *vif,
 		/* add qos len 2 byte */
 		ptk_headr_len += 2;
 	}
-        
+
 	/* valid addr4 in case:ToDS==1 && FromDS==1 */
 	if ((*(p_ptk_header + 1) & 0x03) != 0x03)
 		valid_addr4 = false;
@@ -550,8 +550,8 @@ unsigned short wlan_rx_wapi_decryption(wlan_vif_t *vif,
 	offset += 2;
 
 	/* save addr1 addr2 */
-       memcpy(p_ptk_header, &input_ptk[offset], 6);
-       memcpy(p_ptk_header + 6, vif->cfg80211.bssid, 6);
+	memcpy(p_ptk_header, &input_ptk[offset], 6);
+	memcpy(p_ptk_header + 6, vif->cfg80211.bssid, 6);
 	is_group_ptk = is_group(p_ptk_header);
 	p_ptk_header += 12;
 	offset += 12;
@@ -644,7 +644,7 @@ unsigned short wlan_rx_wapi_decryption(wlan_vif_t *vif,
 				RESERVD_LEN + PN_LEN + encryp_data_len - 16),
 			       output_buf);
 	}
-	memcpy(data_mic, output_buf + ral_data_len, MIC_LEN);     
+	memcpy(data_mic, output_buf + ral_data_len, MIC_LEN);
 
 	/* calc mic */
 	if (is_group_ptk) {
@@ -664,3 +664,4 @@ unsigned short wlan_rx_wapi_decryption(wlan_vif_t *vif,
 	else
 		return ral_data_len;
 }
+

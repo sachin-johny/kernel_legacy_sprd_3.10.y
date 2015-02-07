@@ -52,8 +52,7 @@ static int hexstr2bin(const char *hex, u8 *buf, size_t len)
 	const char *ipos = hex;
 
 	u8 *opos = buf;
-	for (i = 0; i < len; i++)
-	{
+	for (i = 0; i < len; i++) {
 		a = hex2byte(ipos);
 		if (a < 0)
 			return -1;
@@ -83,12 +82,9 @@ static int fp_size(struct file *f)
 	error = vfs_getattr(f->f_path.mnt, f->f_path.dentry, &stat);
 #endif
 
-	if (error == 0)
-	{
+	if (error == 0) {
 		return stat.size;
-	}
-	else
-	{
+	} else {
 		pr_err("get hostapd conf file stat error\n");
 		return error;
 	}
@@ -102,8 +98,7 @@ static int hostap_conf_read(char *filename, char **buf)
 	loff_t pos = 0;
 
 	fp = filp_open(filename, O_RDONLY, 0);
-	if (IS_ERR(fp))
-	{
+	if (IS_ERR(fp)) {
 		pr_err("open %s file error\n", filename);
 		goto end;
 	}
@@ -111,8 +106,7 @@ static int hostap_conf_read(char *filename, char **buf)
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 	size = fp_size(fp);
-	if (size <= 0)
-	{
+	if (size <= 0) {
 		pr_err("load file:%s error\n", filename);
 		goto error;
 	}
@@ -138,7 +132,7 @@ static char *get_line(char *buf, char *end)
 }
 
 static unsigned char hostap_conf_parse(char *buf, int size,
-                                       struct hostap_conf *conf)
+				       struct hostap_conf *conf)
 {
 	unsigned char ret = 0;
 	char *spos = buf, *epos = NULL, *pos = NULL;
@@ -147,16 +141,13 @@ static unsigned char hostap_conf_parse(char *buf, int size,
 	if (!buf || !conf)
 		return 0;
 
-	for (; (epos = get_line(spos, buf + size)); (spos = epos + 1))
-	{
+	for (; (epos = get_line(spos, buf + size)); (spos = epos + 1)) {
 		line++;
 		if (spos[0] == '#')
 			continue;
 		pos = spos;
-		while (*pos != '\0' && pos <= epos)
-		{
-			if (*pos == '\n')
-			{
+		while (*pos != '\0' && pos <= epos) {
+			if (*pos == '\n') {
 				*pos = '\0';
 				break;
 			}
@@ -167,10 +158,8 @@ static unsigned char hostap_conf_parse(char *buf, int size,
 			continue;
 
 		pos = strchr(spos, '=');
-		if (pos == NULL)
-		{
-			pr_err("Line %d: invalid line '%s'",
-			       line, spos);
+		if (pos == NULL) {
+			pr_err("Line %d: invalid line '%s'", line, spos);
 			errors++;
 			continue;
 		}
@@ -178,13 +167,10 @@ static unsigned char hostap_conf_parse(char *buf, int size,
 		*pos = '\0';
 		pos++;
 
-		if (strcmp(spos, "wpa_psk") == 0)
-		{
+		if (strcmp(spos, "wpa_psk") == 0) {
 			strlcpy(conf->wpa_psk, pos, sizeof(conf->wpa_psk));
 			conf->len = strlen(pos);
-		}
-		else
-		{
+		} else {
 			continue;
 		}
 	}
@@ -202,19 +188,16 @@ int hostap_conf_load(char *filename, unsigned char *key_val)
 		filename = HOSTAP_CONF_FILE_NAME;
 
 	size = hostap_conf_read(filename, &buf);
-	if (size > 0)
-	{
+	if (size > 0) {
 		conf = hostap_conf_create();
-		if (conf == NULL)
-		{
+		if (conf == NULL) {
 			kfree(buf);
 			pr_err("create hostap_conf struct error.\n");
 			return -EINVAL;
 		}
 
 		hostap_conf_parse(buf, size, conf);
-		if (conf->len > 64)
-		{
+		if (conf->len > 64) {
 			pr_err("wpa_psk len is error.(%d)\n", conf->len);
 			return -EINVAL;
 		}
