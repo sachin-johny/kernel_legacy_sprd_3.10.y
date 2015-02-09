@@ -6,5 +6,8 @@
 #define COMMAND_PA_ENABLE       '1'
 #define COMMAND_PA_DISABLE      '0'
 
+#define COMMAND_BT_MAX_LEN      128
+#define COMMAND_BT_ENABLE       '1'
+#define COMMAND_BT_DISABLE      '0'
 
 #endif

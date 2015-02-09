@@ -7,12 +7,15 @@
 #include <linux/semaphore.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
+#include <linux/mutex.h>
 
 #include "wcn_core.h"
 
 static struct platform_device *sprd_wcn_device;
 static struct semaphore pa_enable_lock;
+static DEFINE_MUTEX(bluetooth_ops_lock);
 static volatile unsigned char pa_state = 0;
+static volatile bool bt_state = 0;
 
 void marlin_pa_enable(bool enable){
     int ret;
@@ -101,9 +104,8 @@ done:
     return ret;
 }
 
-static DEVICE_ATTR(pa_enable, 0666,
+static DEVICE_ATTR(pa_enable, 0660,
     get_pa_state, enable_pa);
-
 
 static struct attribute *wcn_pa_sysfs_entries[] = {
     &dev_attr_pa_enable.attr,
@@ -114,10 +116,95 @@ static struct attribute_group wcn_pa_attr_group = {
     .attrs = wcn_pa_sysfs_entries,
 };
 
+// bt
+bool get_bt_state(void){
+    bool state = 0;
+    mutex_lock(&bluetooth_ops_lock);
+    state = bt_state;
+    printk(KERN_INFO "%s get bt state: %d\n", __func__, state);
+    mutex_unlock(&bluetooth_ops_lock);
+    return state;
+}
+EXPORT_SYMBOL(get_bt_state);
+
+static void marlin_bt_enable(bool enable){
+    mutex_lock(&bluetooth_ops_lock);
+    printk(KERN_INFO "%s enable bt: %d\n", __func__, enable);
+    bt_state = enable;
+    mutex_unlock(&bluetooth_ops_lock);
+}
+
+static ssize_t get_bluetooth_state(struct device *dev,
+    struct device_attribute *attr, char *buf){
+    return sprintf(buf, "%d\n", get_bt_state());
+}
+
+static ssize_t enable_bluetooth(struct device *dev,
+    struct device_attribute *attr, const char *buf, size_t count){
+    int ret = count;
+
+    if (count <= 0) {
+        printk(KERN_ERR "%s parameters miss\n", __func__);
+        goto done;
+    }
+
+    switch (buf[0]) {
+        case COMMAND_BT_ENABLE:
+            printk(KERN_INFO "%s bt enable\n", __func__);
+            marlin_bt_enable(1);
+            break;
+
+        case COMMAND_BT_DISABLE:
+            printk(KERN_INFO "%s bt disable\n", __func__);
+            marlin_bt_enable(0);
+            break;
+
+        default:
+            printk(KERN_ERR "%s unknow parameters: %c\n", __func__, buf[0]);
+            break;
+    }
+
+done:
+    return ret;
+}
+
+static DEVICE_ATTR(bt_enable, 0660,
+    get_bluetooth_state, enable_bluetooth);
+
+
+static struct attribute *wcn_bluetooth_sysfs_entries[] = {
+    &dev_attr_bt_enable.attr,
+    NULL,
+};
+
+static struct attribute_group wcn_bluetooth_attr_group = {
+    .attrs = wcn_bluetooth_sysfs_entries,
+};
+
 static int  sprd_wcn_probe(struct platform_device *pdev){
+    int err = 0;
+
     sema_init(&pa_enable_lock, 1);
-    return sysfs_create_group(&pdev->dev.kobj,
+    err = sysfs_create_group(&pdev->dev.kobj,
     &wcn_pa_attr_group);
+    if (err) {
+        printk(KERN_ERR "%s create sysfs pa failed\n", __func__);
+        goto error_remove_files;
+    }
+
+    err = sysfs_create_group(&pdev->dev.kobj,
+    &wcn_bluetooth_attr_group);
+    if (err) {
+        printk(KERN_ERR "%s create sysfs bluetooth failed\n", __func__);
+        goto error_remove_files;
+    }
+
+    return 0;
+
+error_remove_files:
+    sysfs_remove_group(&pdev->dev.kobj, &wcn_pa_attr_group);
+
+    return err;
 }
 
 static int  sprd_wcn_remove(struct platform_device *pdev){
