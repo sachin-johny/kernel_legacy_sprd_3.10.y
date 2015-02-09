@@ -326,7 +326,7 @@ void ittiam_nvm_init(void )
     int board_type = 0;
     char board_type_str[MAX_BOARD_TYPE_LEN] = {0};
 
-#if (defined CONFIG_MACH_SP7715EA) || (defined CONFIG_MACH_SP7715EAOPENPHONE)  || (defined CONFIG_MACH_SP7715EATRISIM) || (defined CONFIG_MACH_SP7715GA) || (defined CONFIG_MACH_SP7715GATRISIM) \
+#if (defined CONFIG_MACH_SP7715EA) || (defined CONFIG_MACH_SP7715EAOPENPHONE) || (defined CONFIG_MACH_SP7715EATRISIM) || (defined CONFIG_MACH_SP7715EB) || (defined CONFIG_MACH_SP7715GA) || (defined CONFIG_MACH_SP7715GATRISIM) \
     || (defined CONFIG_MACH_SP8815GA) || (defined CONFIG_MACH_SP8815GAOPENPHONE) \
     || (defined CONFIG_MACH_SPX35EC) || (defined CONFIG_MACH_SP8830GA) || (defined CONFIG_MACH_SP8835EB) \
 	|| (defined CONFIG_MACH_KANAS_W) || (defined CONFIG_MACH_KANAS_TD) \
@@ -343,7 +343,7 @@ void ittiam_nvm_init(void )
 #endif
 
 
-#if (defined CONFIG_MACH_SP7715EA) || (defined CONFIG_MACH_SP7715EAOPENPHONE)  || (defined CONFIG_MACH_SP7715EATRISIM) || (defined CONFIG_MACH_SP7715GA) || (defined CONFIG_MACH_SP7715GATRISIM) \
+#if (defined CONFIG_MACH_SP7715EA) || (defined CONFIG_MACH_SP7715EAOPENPHONE) || (defined CONFIG_MACH_SP7715EATRISIM) || (defined CONFIG_MACH_SP7715EB) || (defined CONFIG_MACH_SP7715GA) || (defined CONFIG_MACH_SP7715GATRISIM) \
     || (defined CONFIG_MACH_SP8815GA) || (defined CONFIG_MACH_SP8815GAOPENPHONE) \
     || (defined CONFIG_MACH_SPX35EC) || (defined CONFIG_MACH_SP8830GA) || (defined CONFIG_MACH_SP8835EB) \
 	|| (defined CONFIG_MACH_KANAS_W) || (defined CONFIG_MACH_KANAS_TD) \

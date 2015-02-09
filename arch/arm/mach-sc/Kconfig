@@ -205,6 +205,7 @@ config MACH_SP6815EA
 	default n
 	help
 	SP6815EA board based on dolphin serial.
+
 config MACH_SP7715EA
 	bool "sp7715ea Phone Board"
 	depends on ARCH_SC
@@ -213,6 +214,15 @@ config MACH_SP7715EA
 	default n
 	help
 	  SP7715EA board based on dolphin serial.
+
+config MACH_SP7715EB
+	bool "sp7715eb Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	  SP7715EB board based on dolphin serial.
 
 config MACH_SP7715EATRISIM
 	bool "sp7715eatrisim Phone Board"
@@ -497,4 +507,8 @@ config SS_FUNCTION
 config TSP_0_1_A
         bool "For corsica_ve 3131 0.1A board"
         default n
+config SPRD_CR370185
+	bool "Fix lockup issue caused by RF3532"
+	depends on ARCH_SCX15
+	default n
 endif

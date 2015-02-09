@@ -42,6 +42,7 @@ obj-$(CONFIG_MACH_KANAS_W) += board-kanas_w.o dma_r4p0.o
 obj-$(CONFIG_MACH_KANAS_TD) += board-kanas_td.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7715EATRISIM) += board-sp7715eatrisim.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7715EA) += board-sp7715ea.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP7715EB) += board-sp7715eb.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7715EAOPENPHONE) += board-sp7715eaopenphone.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7715GATRISIM) += board-sp7715gatrisim.o dma_r4p0.o
 obj-$(CONFIG_MACH_X3542) += board-x3542.o dma_r4p0.o

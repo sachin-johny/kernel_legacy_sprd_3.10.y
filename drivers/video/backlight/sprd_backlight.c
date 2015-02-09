@@ -109,7 +109,7 @@ struct sprd_bl_devdata {
 };
 
 static struct sprd_bl_devdata sprdbl;
-#if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM))
+#if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM)||defined(CONFIG_MACH_SP7715EB))
 static int pwm_whiteled_both = 0;
 static int sprd_bl_whiteled_update_status(struct backlight_device *bldev);
 #endif
@@ -175,7 +175,7 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 		pwm_write(sprdbl.pwm_index, PWM_ENABLE, PWM_PRESCALE);
 	}
 
-#if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM))
+#if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM)||defined(CONFIG_MACH_SP7715EB))
 	if(1 == pwm_whiteled_both)
 		sprd_bl_whiteled_update_status(bldev);
 #endif
@@ -352,7 +352,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	PRINT_INFO("PWM%d is used for brightness control (external backlight controller)\n", sprdbl.pwm_index);
 #else
 
-#if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM))
+#if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM)||defined(CONFIG_MACH_SP7715EB))
 	struct clk* ext_26m = NULL;
 	struct resource *pwm_res;
 	char pwm_clk_name[32];
@@ -421,7 +421,7 @@ pwm_7715ea:
 			printk(KERN_ERR "Failed to register backlight device\n");
 			return -ENOMEM;
 		}
-		#if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM))
+		#if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM)||defined(CONFIG_MACH_SP7715EB))
 			if(0x00000000 == adie_chip_ver) {
 				pwm_whiteled_both = 1;
 				#ifdef SPRD_DIM_PWM_MODE

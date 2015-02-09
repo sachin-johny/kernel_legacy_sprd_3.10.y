@@ -150,6 +150,26 @@ check_pub_state:
     cmp     r2,#0x0
     bne     check_pub_state
 
+
+	ldr r0, =0x402e00c0
+	ldr r1, [r0]
+	tst r1, #0x1
+	beq Next
+
+	ldr r0, =0x30040000
+	ldr r1, [r0]
+	tst r1, #0x1
+	bne Next
+	/*send ipi irq1 to cp0*/
+	ldr r0, =0x402c0000
+	mov r1, #0x4
+	str r1, [r0]
+1:	ldr r0, =0x30040000
+	ldr r1, [r0]
+	tst r1, #0x1
+	beq 1b
+
+Next:
 	ldr r0, =REG_AON_APB_EB0_PHY
 	ldr r1, [r0]
 	orr r1, #JTAG_DAP_EN
