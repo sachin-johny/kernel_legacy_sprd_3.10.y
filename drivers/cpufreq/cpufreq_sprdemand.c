@@ -75,6 +75,7 @@
 static unsigned long boot_done;
 
 unsigned int cpu_hotplug_disable_set = false;
+static int g_is_suspend = false;
 
 struct unplug_work_info {
 	unsigned int cpuid;
@@ -84,10 +85,9 @@ struct unplug_work_info {
 
 struct delayed_work plugin_work;
 struct delayed_work unplug_work;
-#ifdef CONFIG_THERMAL
 struct work_struct thm_unplug_work;
 static void sprd_thm_unplug_cpu(struct work_struct *work);
-#endif
+static int cpu_num_limit_temp;
 
 static DEFINE_PER_CPU(struct unplug_work_info, uwi);
 
@@ -1629,9 +1629,7 @@ static int sd_init(struct dbs_data *dbs_data)
 
 	INIT_DELAYED_WORK(&plugin_work, sprd_plugin_one_cpu);
 	INIT_DELAYED_WORK(&unplug_work, sprd_unplug_one_cpu);
-#ifdef CONFIG_THERMAL
 	INIT_WORK(&thm_unplug_work, sprd_thm_unplug_cpu);
-#endif
 
 	for_each_possible_cpu(i) {
 		puwi = &per_cpu(uwi, i);
@@ -1685,6 +1683,42 @@ struct cpufreq_governor cpufreq_gov_sprdemand = {
 	.max_transition_latency	= TRANSITION_LATENCY_LIMIT,
 	.owner			= THIS_MODULE,
 };
+
+static void sprd_thm_unplug_cpu(struct work_struct *work)
+{
+	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+	struct dbs_data *dbs_data = policy->governor_data;
+	struct sd_dbs_tuners *sd_tuners = NULL;
+	int cpuid, max_core, cpus, i;
+
+	if(NULL == dbs_data)
+	{
+		pr_info("%s return\n", __func__);
+		if (g_sd_tuners == NULL)
+			return ;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
+
+
+#ifdef CONFIG_HOTPLUG_CPU
+	cpus = num_online_cpus();
+	max_core = sd_tuners->cpu_num_limit;
+	for (i = 0; i < cpus - max_core; ++i){
+		if (!sd_tuners->cpu_hotplug_disable) {
+			cpuid = cpumask_next(0, cpu_online_mask);
+			pr_info("!!  we gonna unplug cpu%d  !!\n", cpuid);
+			if (cpu_down(cpuid)){
+				pr_info("unplug cpu%d failed!\n", cpuid);
+			}
+		}
+	}
+#endif
+	return;
+}
 
 #if defined(CONFIG_THERMAL)
 static int get_max_state(struct thermal_cooling_device *cdev,
@@ -1775,39 +1809,6 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 	return 0;
 }
 
-static void sprd_thm_unplug_cpu(struct work_struct *work)
-{
-	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
-	struct dbs_data *dbs_data = policy->governor_data;
-	struct sd_dbs_tuners *sd_tuners = NULL;
-	int cpuid, max_core, cpus, i;
-
-	if(NULL == dbs_data)
-	{
-		pr_info("%s return\n", __func__);
-		if (g_sd_tuners == NULL)
-			return ;
-		sd_tuners = g_sd_tuners;
-	}
-	else
-	{
-		sd_tuners = dbs_data->tuners;
-	}
-
-
-#ifdef CONFIG_HOTPLUG_CPU
-	cpus = num_online_cpus();
-	max_core = sd_tuners->cpu_num_limit;
-	for (i = 0; i < cpus - max_core; ++i){
-		if (!sd_tuners->cpu_hotplug_disable) {
-			cpuid = cpumask_next(0, cpu_online_mask);
-			pr_info("!!  we gonna unplug cpu%d  !!\n", cpuid);
-			cpu_down(cpuid);
-		}
-	}
-#endif
-	return;
-}
 static struct thermal_cooling_device_ops sprd_cpufreq_cooling_ops = {
 	.get_max_state = get_max_state,
 	.get_cur_state = get_cur_state,
@@ -1838,15 +1839,23 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 	 * one to make sure all things go right */
 	if (event == PM_SUSPEND_PREPARE || event == PM_HIBERNATION_PREPARE) {
 		pr_info(" %s, recv pm suspend notify\n", __func__ );
-		if (sd_tuners->cpu_num_limit > 1)
-			if(cpu_hotplug_disable_set == false)
-				sd_tuners->cpu_hotplug_disable = true;
+		cpu_num_limit_temp = sd_tuners->cpu_num_limit;
+		sd_tuners->cpu_num_limit = 1;
+		schedule_work_on(0, &thm_unplug_work);
+#ifdef CONFIG_ARCH_SCX35L
+		cpufreq_driver_target(policy, 900000, CPUFREQ_RELATION_H);
+#else
+		dbs_freq_increase(policy, policy->max-1);
+#endif
+
 		sd_tuners->is_suspend = true;
-		dbs_freq_increase(policy, policy->max);
+		g_is_suspend = true;
 		pr_info(" %s, recv pm suspend notify done\n", __func__ );
 	}
 	if (event == PM_POST_SUSPEND) {
 		sd_tuners->is_suspend = false;
+		g_is_suspend = false;
+		sd_tuners->cpu_num_limit = cpu_num_limit_temp ;
 	}
 
 	return NOTIFY_OK;
@@ -1855,47 +1864,6 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 static struct notifier_block sprdemand_gov_pm_notifier = {
 	.notifier_call = sprdemand_gov_pm_notifier_call,
 };
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void sprdemand_gov_early_suspend(struct early_suspend *h)
-{
-	pr_info("%s do nothing\n", __func__);
-	return;
-}
-
-static void sprdemand_gov_late_resume(struct early_suspend *h)
-{
-	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
-	struct dbs_data *dbs_data = policy->governor_data;
-	struct sd_dbs_tuners *sd_tuners = NULL;
-
-	if(NULL == dbs_data)
-	{
-		pr_info("sprdemand_gov_late_resume governor %s return\n", policy->governor->name);
-		if (g_sd_tuners == NULL)
-			return ;
-		sd_tuners = g_sd_tuners;
-	}
-	else
-	{
-		sd_tuners = dbs_data->tuners;
-	}
-
-
-	if (sd_tuners->cpu_num_limit > 1)
-		if(cpu_hotplug_disable_set == false)
-			sd_tuners->cpu_hotplug_disable = false;
-
-	return;
-}
-
-static struct early_suspend sprdemand_gov_earlysuspend_handler = {
-	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-	.suspend = sprdemand_gov_early_suspend,
-	.resume = sprdemand_gov_late_resume,
-};
-#endif
-
 
 static struct workqueue_struct *input_wq;
 static struct work_struct dbs_refresh_work;
@@ -1907,15 +1875,14 @@ void dbs_refresh_callback(struct work_struct *work)
 			cpu);
 
 	struct cpufreq_policy *policy;
+
 	static unsigned int old_jiffies = 0;
 
 	policy = core_dbs_info->cdbs.cur_policy;
 
-	if (!policy)
-	{
+	if (!policy || g_is_suspend){
 		return;
 	}
-
 
 	if (policy->cur < policy->max)
 	{
@@ -2225,7 +2192,7 @@ void sprd_tb_thread()
 			cpu_score = 0;
 		}
 		*/
-		if(num_online_cpus() < 3){
+		if(num_online_cpus() < 3 && g_is_suspend == false){
 			schedule_delayed_work_on(0, &plugin_work, 0);
 			cpu_score = 0;
 		}
@@ -2238,9 +2205,6 @@ static int __init cpufreq_gov_dbs_init(void)
 	int i = 0;
 	boot_done = jiffies + GOVERNOR_BOOT_TIME;
 	register_pm_notifier(&sprdemand_gov_pm_notifier);
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&sprdemand_gov_earlysuspend_handler);
-#endif
 
 	input_wq = alloc_workqueue("iewq", WQ_MEM_RECLAIM|WQ_SYSFS, 1);
 
@@ -2277,9 +2241,6 @@ static int __init cpufreq_gov_dbs_init(void)
 static void __exit cpufreq_gov_dbs_exit(void)
 {
 	cpufreq_unregister_governor(&cpufreq_gov_sprdemand);
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&sprdemand_gov_earlysuspend_handler);
-#endif
 	unregister_pm_notifier(&sprdemand_gov_pm_notifier);
 #if defined(CONFIG_THERMAL)
 	platform_driver_unregister(&cpu_cooling_driver);
