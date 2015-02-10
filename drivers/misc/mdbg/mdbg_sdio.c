@@ -11,6 +11,7 @@
 /*******************************************************/
 #include "mdbg_sdio.h"
 #include "mdbg_ring.h"
+#include "mdbg.h"
 #include <linux/mutex.h>
 
 
@@ -19,9 +20,10 @@
 /*******************************************************/
 MDBG_RING_T* rx_ring;
 struct mutex mdbg_read_mutex;
-extern bool read_flag;
+extern unsigned int read_flag;
 extern wait_queue_head_t	mdbg_wait;
 extern unsigned int first_boot;
+extern struct mdbg_devvice_t *mdbg_dev;
 /*******************************************************/
 /******************Local Variables*******************/
 /*******************************************************/
@@ -118,8 +120,9 @@ PUBLIC void mdbg_sdio_read(void)
 	}
 	sdio_dev_read(MDBG_CHANNEL_READ,mdbg_rx_buff,&sdio_read_len);
 	sdio_read_len = mdbg_ring_write(rx_ring,mdbg_rx_buff, sdio_read_len);
-	read_flag = 1;
+	read_flag++;
 	wake_up_interruptible(&mdbg_wait);
+	wake_up_interruptible(&mdbg_dev->rxwait);
 
 	wake_unlock(&mdbg_wake_lock);
 	mutex_unlock(&mdbg_read_mutex);

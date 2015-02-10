@@ -12,6 +12,13 @@
 
 #include "mdbg_type.h"
 
+struct mdbg_devvice_t{
+	int 			open_count;
+	struct mutex 	mdbg_lock;
+	char			*read_buf;
+	char			*write_buf;
+	wait_queue_head_t	rxwait;
+};
 
 
 #endif

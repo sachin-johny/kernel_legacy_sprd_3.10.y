@@ -27,15 +27,10 @@
 #define MDBG_LOOPCHECK_SIZE			(128)
 #define MDBG_AT_CMD_SIZE 			(128)
 
-bool read_flag = 0;
+unsigned int read_flag = 0;
 unsigned int first_boot = 0;
-struct mdbg_devvice_t{
-	int 			open_count;
-	struct mutex 	mdbg_lock;
-	char			*read_buf;
-	char			*write_buf;
-};
-static struct mdbg_devvice_t *mdbg_dev=NULL;
+
+struct mdbg_devvice_t *mdbg_dev=NULL;
 wait_queue_head_t	mdbg_wait;
 
 struct mdbg_proc_entry {
@@ -383,6 +378,7 @@ LOCAL void mdbg_fs_init(void)
 	init_completion(&mdbg_proc->at_cmd.completed);
 	init_waitqueue_head(&mdbg_proc->assert.rxwait);
 	init_waitqueue_head(&mdbg_proc->wdtirq.rxwait);
+	init_waitqueue_head(&mdbg_dev->rxwait);
 }
 
 LOCAL void mdbg_fs_init_exit(void)
@@ -415,7 +411,7 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 
 	if (timeout < 0){
 		/* wait forever */
-		rval = wait_event_interruptible(mdbg_wait,read_flag == 1);
+		rval = wait_event_interruptible(mdbg_wait,read_flag > 0);
 		if (rval < 0){
 			MDBG_ERR("mdbg_read wait interrupted!\n");
 		}
@@ -425,7 +421,7 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 
 	mutex_lock(&mdbg_dev->mdbg_lock);
 
-	if(!read_flag){
+	if(read_flag <= 0){
 		mutex_unlock(&mdbg_dev->mdbg_lock);
 		//MDBG_ERR("data no ready");
 		return 0;
@@ -442,7 +438,7 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 			MDBG_ERR("copy from user fail!");
 			return -EFAULT;
 		}
-		read_flag = 0;
+		read_flag--;
 		mutex_unlock(&mdbg_dev->mdbg_lock);
 		return read_size;
 	}else{
@@ -503,12 +499,24 @@ static int mdbg_release(struct inode *inode,struct file *filp)
 	return 0;
 }
 
+static unsigned int mdbg_poll(struct file *filp, poll_table *wait)
+{
+	unsigned int mask = 0;
+
+	poll_wait(filp, &mdbg_dev->rxwait, wait);
+	if(read_flag > 0)
+		mask |= POLLIN | POLLRDNORM;
+
+	return mask;
+}
+
 static struct file_operations mdbg_fops = {
 	.owner = THIS_MODULE,
 	.read  = mdbg_read,
 	.write = mdbg_write,
 	.open  = mdbg_open,
 	.release = mdbg_release,
+	.poll		= mdbg_poll,
 };
 static struct miscdevice mdbg_device = {
 	.minor = MISC_DYNAMIC_MINOR,
