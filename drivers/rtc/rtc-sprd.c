@@ -425,7 +425,7 @@ static int sprd_rtc_set_aux_alarm(struct device *dev,
 		wake_lock(&rtc_wake_lock);
 		sprd_rtc_set_aux_alarm_sec(secs);
 		/*unlock the rtc alrm int*/
-		//sci_adi_raw_write((unsigned long)ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
+		sci_adi_raw_write((unsigned long)ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
 		wake_unlock(&rtc_wake_lock);
 	}else{
 		sci_adi_clr((unsigned long)ANA_RTC_INT_EN, RTC_AUX_ALARM_BIT);
@@ -461,7 +461,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 		wake_lock(&rtc_wake_lock);
 		sprd_rtc_set_alarm_sec(secs);
 		/*unlock the rtc alrm int*/
-		//sci_adi_raw_write((unsigned long)ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
+		sci_adi_raw_write((unsigned long)ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
 		wake_unlock(&rtc_wake_lock);
 	}else{
 		sci_adi_clr(ANA_RTC_INT_EN, RTC_ALARM_BIT);
