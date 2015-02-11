@@ -1469,6 +1469,10 @@ static void sprdbat_charge_works(struct work_struct *work)
 	}
 
 	sprdbat_temp_monitor();
+	if (sprdbat_data->bat_info.chg_stop_flags & SPRDBAT_CHG_END_TIMEOUT_BIT) {
+		SPRDBAT_DEBUG("SPRDBAT_CHG_TIMEOUT_RESTART_E\n");
+		sprdbat_change_module_state(SPRDBAT_CHG_TIMEOUT_RESTART_E);
+	}
 
 	if (sprdbat_data->bat_info.chg_stop_flags == SPRDBAT_CHG_END_NONE_BIT) {
 		if (sprdbat_is_chg_timeout()) {
@@ -1548,11 +1552,6 @@ static void sprdbat_charge_works(struct work_struct *work)
 			}
 		}
 
-	}
-
-	if (sprdbat_data->bat_info.chg_stop_flags & SPRDBAT_CHG_END_TIMEOUT_BIT) {
-		SPRDBAT_DEBUG("SPRDBAT_CHG_TIMEOUT_RESTART_E\n");
-		sprdbat_change_module_state(SPRDBAT_CHG_TIMEOUT_RESTART_E);
 	}
 
 	if (sprdbat_data->bat_info.chg_stop_flags & SPRDBAT_CHG_END_FULL_BIT) {
