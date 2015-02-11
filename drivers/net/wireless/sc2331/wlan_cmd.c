@@ -387,16 +387,24 @@ int wlan_cmd_scan(unsigned char vif_id, const unsigned char *ssid,
 		  const unsigned char *channels, int len)
 {
 	int dataLen;
-	struct wlan_cmd_scan *ptr;
+	struct wlan_cmd_scan *ptr = NULL;
+	u8 *send = NULL;
+	u8 *psend = NULL;
+	u8 ch_num = channels[0] + 1;
 
-	dataLen = sizeof(struct wlan_cmd_scan) + len;
-	ptr = kmalloc(dataLen, GFP_KERNEL);
-	/*memcpy((char *)ptr, channels, 16);*/
+	dataLen = sizeof(struct wlan_cmd_scan) + len + ch_num;
+	psend = send = kmalloc(dataLen, GFP_KERNEL);
+
+	memcpy(send, channels, ch_num);
+	send += ch_num;
+
+	ptr = (struct wlan_cmd_scan *)send;
+	memcpy(ptr->ssid,  ssid, len);
 	ptr->len = len;
-	memcpy(ptr->ssid, ssid, len);
 
-	wlan_cmd_send_recv(vif_id, (unsigned char *)ptr, dataLen,
-			   WIFI_CMD_SET_SCAN, CMD_WAIT_TIMEOUT);
+	hex_dump("scan data ", 10, psend, dataLen);
+	wlan_cmd_send_recv(vif_id, (unsigned char *)psend,
+				dataLen, WIFI_CMD_SET_SCAN, CMD_WAIT_TIMEOUT);
 	return 0;
 }
 

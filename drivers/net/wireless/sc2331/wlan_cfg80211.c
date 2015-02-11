@@ -833,7 +833,7 @@ static int wlan_cfg80211_scan(struct wiphy *wiphy,
 		}
 	}
 
-	n = min(request->n_channels, 4U);
+	n = min(request->n_channels, 14);
 	if (n > 15)
 		n = 15;
 	for (i = 0, j = 0; i < n; i++) {
