@@ -30,11 +30,36 @@
 
 static struct sbuf_mgr *sbufs[SIPC_ID_NR][SMSG_CH_NR];
 
+static int sbuf_recover(uint8_t dst, uint8_t channel)
+{
+   struct sbuf_mgr *sbuf = sbufs[dst][channel];
+   struct sbuf_ring *ring = NULL;
+   volatile struct sbuf_ring_header *ringhd = NULL;
+   uint32_t i;
+
+   if (!sbuf) {
+      return -ENODEV;
+   }
+
+   for (i = 0; i < sbuf->ringnr; i++) {
+      ring = &(sbuf->rings[i]);
+      ringhd = ring->header;
+
+      /* clean sbuf tx ring */
+      ringhd->txbuf_wrptr = ringhd->txbuf_rdptr;
+      /* clean sbuf rx ring */
+      ringhd->rxbuf_rdptr = ringhd->rxbuf_wrptr;
+   }
+   printk(KERN_INFO "sbuf_recover done.\n");
+   return 0;
+}
+
 static int sbuf_thread(void *data)
 {
 	struct sbuf_mgr *sbuf = data;
 	struct smsg mcmd, mrecv;
 	int rval, bufid;
+	int recovery = 0;
 	struct sched_param param = {.sched_priority = 90};
 
 	/*set the thread as a real time thread, and its priority is 90*/
@@ -69,6 +94,9 @@ static int sbuf_thread(void *data)
 		switch (mrecv.type) {
 		case SMSG_TYPE_OPEN:
 			/* handle channel recovery */
+			if (recovery) {
+				sbuf_recover(sbuf->dst, sbuf->channel);
+			}
 			smsg_open_ack(sbuf->dst, sbuf->channel);
 			break;
 		case SMSG_TYPE_CLOSE:
@@ -83,6 +111,7 @@ static int sbuf_thread(void *data)
 					SMSG_DONE_SBUF_INIT, sbuf->smem_addr);
 			smsg_send(sbuf->dst, &mcmd, -1);
 			sbuf->state = SBUF_STATE_READY;
+			recovery = 1;
 			break;
 		case SMSG_TYPE_EVENT:
 			bufid = mrecv.value;
@@ -128,7 +157,6 @@ int sbuf_create(uint8_t dst, uint8_t channel, uint32_t bufnum,
 	volatile struct sbuf_smem_header *smem;
 	volatile struct sbuf_ring_header *ringhd;
 	int hsize, i, result;
-	char lock_name[20];
 
 	sbuf = kzalloc(sizeof(struct sbuf_mgr), GFP_KERNEL);
 	if (!sbuf) {
@@ -191,8 +219,8 @@ int sbuf_create(uint8_t dst, uint8_t channel, uint32_t bufnum,
 		init_waitqueue_head(&(sbuf->rings[i].rxwait));
 		mutex_init(&(sbuf->rings[i].txlock));
 		mutex_init(&(sbuf->rings[i].rxlock));
-		sprintf(lock_name, "sipc-sbuf-%d-%d\n", channel, i);
-		wake_lock_init(&sbuf->rings[i].sbuf_wake_lock, WAKE_LOCK_SUSPEND, lock_name);
+		sprintf(sbuf->rings[i].wake_lock_name, "sipc-sbuf-%d-%d-%d\n", dst, channel, i);
+		wake_lock_init(&sbuf->rings[i].sbuf_wake_lock, WAKE_LOCK_SUSPEND, sbuf->rings[i].wake_lock_name);
 	}
 
 	sbuf->thread = kthread_create(sbuf_thread, sbuf,
@@ -443,11 +471,11 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 				ringhd->rxbuf_wrptr != ringhd->rxbuf_rdptr ||
 				sbuf->state == SBUF_STATE_IDLE);
 			if (rval < 0) {
-				printk(KERN_WARNING "sbuf_read wait interrupted!\n");
+				printk(KERN_WARNING "sbuf_read %d-%d-%d wait interrupted!\n", dst, channel, bufid);
 			}
 
 			if (sbuf->state == SBUF_STATE_IDLE) {
-				printk(KERN_ERR "sbuf_read sbuf state is idle!\n");
+				printk(KERN_ERR "sbuf_read sbuf %d-%d state is idle!\n", dst, channel);
 				rval = -EIO;
 			}
 		} else {
@@ -456,14 +484,14 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 				ringhd->rxbuf_wrptr != ringhd->rxbuf_rdptr ||
 				sbuf->state == SBUF_STATE_IDLE, timeout);
 			if (rval < 0) {
-				printk(KERN_WARNING "sbuf_read wait interrupted!\n");
+				printk(KERN_WARNING "sbuf_read %d-%d-%d wait interrupted!\n", dst, channel, bufid);
 			} else if (rval == 0) {
-				printk(KERN_WARNING "sbuf_read wait timeout!\n");
+				printk(KERN_WARNING "sbuf_read %d-%d-%d wait timeout!\n", dst, channel, bufid);
 				rval = -ETIME;
 			}
 
 			if (sbuf->state == SBUF_STATE_IDLE) {
-				printk(KERN_ERR "sbuf_read sbuf state is idle!\n");
+				printk(KERN_ERR "sbuf_read sbuf %d-%d state is idle!\n", dst, channel);
 				rval = -EIO;
 			}
 		}
@@ -521,19 +549,19 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 		buf += rxsize;
 	}
 
-	if (ringhd->rxbuf_wrptr == ringhd->rxbuf_rdptr) {
-		wake_unlock(&(sbuf->rings[bufid].sbuf_wake_lock));
+	pr_debug("sbuf_read done: channel=%d, len=%d", channel, len - left);
+	if (len != left) {
+		if (ringhd->rxbuf_wrptr == ringhd->rxbuf_rdptr) {
+			//printk(KERN_EMERG "reset lock time %s, %d-%d-%d! \n", sbuf->rings[bufid].wake_lock_name ,dst, channel, bufid);
+			wake_lock_timeout(&(sbuf->rings[bufid].sbuf_wake_lock), HZ/50);
+		}
+		rval = len - left;
 	}
 
 	mutex_unlock(&ring->rxlock);
 
-	pr_debug("sbuf_read done: channel=%d, len=%d", channel, len - left);
 
-	if (len == left) {
-		return rval;
-	} else {
-		return (len - left);
-	}
+	return rval;
 }
 
 int sbuf_poll_wait(uint8_t dst, uint8_t channel, uint32_t bufid,

@@ -60,6 +60,7 @@ struct sbuf_ring {
 	struct mutex		rxlock;
 
 	struct wake_lock 	sbuf_wake_lock;
+	char                wake_lock_name[20];
 
 	void			(*handler)(int event, void *data);
 	void			*data;
