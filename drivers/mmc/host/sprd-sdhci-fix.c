@@ -1033,8 +1033,8 @@ static int sprd_sdhci_host_pm_suspend(struct device *dev) {
 			sprd_sdhci_host_wake_lock(&sprd_host->wake_lock);
 			spin_lock_irqsave(&host->lock, flags);
 			sprd_sdhci_host_close_clock(host);
-			sprd_sdhci_host_enable_clock(host, 0);
 			spin_unlock_irqrestore(&host->lock, flags);
+			sprd_sdhci_host_enable_clock(host, 0);
 			sprd_sdhci_host_wake_unlock(&sprd_host->wake_lock);
 		} else {
 			if(pm_runtime_enabled(dev))
@@ -1049,9 +1049,9 @@ static int sprd_sdhci_host_pm_resume(struct device *dev) {
 	unsigned long flags;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sdhci_host *host = platform_get_drvdata(pdev);
-	spin_lock_irqsave(&host->lock, flags);
+	/*spin_lock_irqsave(&host->lock, flags);*/
 	sprd_sdhci_host_enable_clock(host, 1);
-	spin_unlock_irqrestore(&host->lock, flags);
+	/*spin_unlock_irqrestore(&host->lock, flags);*/
 	udelay(100);
 	retval = sdhci_resume_host(host);
 	if(pm_runtime_enabled(dev))
@@ -1069,10 +1069,10 @@ static int sprd_sdhci_host_runtime_suspend(struct device *dev) {
 		struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 		sprd_sdhci_host_wake_lock(&sprd_host->wake_lock);
 		sdhci_runtime_suspend_host(host);
-		/*spin_lock_irqsave(&host->lock, flags);*/
+		spin_lock_irqsave(&host->lock, flags);
 		sprd_sdhci_host_close_clock(host);
+		spin_unlock_irqrestore(&host->lock, flags);
 		sprd_sdhci_host_enable_clock(host, 0);
-		/*spin_unlock_irqrestore(&host->lock, flags);*/
 		sprd_sdhci_host_wake_unlock(&sprd_host->wake_lock);
 		rc = 0;
 	}
