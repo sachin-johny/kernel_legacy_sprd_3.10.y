@@ -816,6 +816,7 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         int adc_left_average = 0;
         int adc_mic_ideal = 0;
         int no_mic_retry_count = NO_MIC_RETRY_COUNT;
+        unsigned int head_insert_2;
 
         ENTER;
 
@@ -867,23 +868,23 @@ no_mic_retry:
                 PRINT_INFO("software debance (ana_sts0_confirm)!!!(headset_type_detect)\n");
                 return HEADSET_TYPE_ERR;
         }
-
-        if((adc_left_average < ADC_GND) && (adc_mic_average < pdata->adc_threshold_3pole_detect)) {
+        head_insert_2 = headset_reg_get_bit(HEADMIC_DETECT_REG(ANA_STS0), AUDIO_HEAD_INSERT_2);
+        if((0 != head_insert_2) && (adc_mic_average < pdata->adc_threshold_3pole_detect)) {
                 if(0 != no_mic_retry_count) {
                         PRINT_INFO("no_mic_retry\n");
                         no_mic_retry_count--;
                         goto no_mic_retry;
                 }
                 return HEADSET_NO_MIC;
-        } else if((adc_left_average < ADC_GND) && (adc_mic_average > ADC_GND))
+        } else if ((adc_left_average < ADC_GND) && (adc_mic_average > ADC_GND)) {
                 return HEADSET_4POLE_NORMAL;
-        else if((adc_left_average > ADC_GND) && (adc_mic_average > ADC_GND)
-                && (ABS(adc_mic_average - adc_left_average) < ADC_GND))
+        } else if ((adc_left_average > ADC_GND) && (adc_mic_average > ADC_GND)
+                && (ABS(adc_mic_average - adc_left_average) < ADC_GND)) {
                 return HEADSET_4POLE_NOT_NORMAL;
-        else
+        } else {
+                PRINT_INFO("head_insert_2 = %d\n", head_insert_2);
                 return HEADSET_TYPE_ERR;
-
-        return HEADSET_TYPE_ERR;
+        }
 }
 
 static void button_release_verify(void)
