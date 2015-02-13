@@ -294,6 +294,9 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 	switch (off) {
 	case STOP_CHARGE:
 		if (0 == set_value) {
+			sprdbat_data->bat_info.bat_health = POWER_SUPPLY_HEALTH_GOOD;
+			sprdbat_data->bat_info.chg_stop_flags =
+			    SPRDBAT_CHG_END_NONE_BIT;
 			sprdbat_change_module_state(SPRDBAT_ADP_PLUGIN_E);
 		} else {
 			sprdbat_change_module_state(SPRDBAT_ADP_PLUGOUT_E);
