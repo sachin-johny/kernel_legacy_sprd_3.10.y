@@ -838,6 +838,8 @@ int32_t dwc_otg_pcd_handle_usb_reset_intr(dwc_otg_pcd_t * pcd)
 	gintsts_data_t gintsts;
 	pcgcctl_data_t power = {.d32 = 0 };
 
+	DWC_PRINTF("lx_state = %d ep0_state = %d addr  = 0x%x USB RESET\n", \
+		core_if->lx_state, pcd->ep0state, dcfg.b.devaddr);
 	power.d32 = DWC_READ_REG32(core_if->pcgcctl);
 	if (power.b.stoppclk) {
 		power.d32 = 0;
@@ -853,7 +855,6 @@ int32_t dwc_otg_pcd_handle_usb_reset_intr(dwc_otg_pcd_t * pcd)
 
 	core_if->lx_state = DWC_OTG_L0;
 
-	DWC_DEBUGPL(DBG_PCDV, "USB RESET\n");
 #ifdef DWC_EN_ISOC
 	for (i = 1; i < 16; ++i) {
 		dwc_otg_pcd_ep_t *ep;
@@ -982,15 +983,21 @@ int32_t dwc_otg_pcd_handle_usb_reset_intr(dwc_otg_pcd_t * pcd)
 
 	/* Reset Device Address */
 	dcfg.d32 = DWC_READ_REG32(&dev_if->dev_global_regs->dcfg);
-	dcfg.b.devaddr = 0;
-	DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
+	gintsts.d32 = 0;
+	if ((pcd->ep0state != EP0_DISCONNECT) && (dcfg.b.devaddr != 0)) {
 
-	/* setup EP0 to receive SETUP packets */
-	if (core_if->snpsid <= OTG_CORE_REV_2_94a)
-		ep0_out_start(core_if, pcd);
+		pcd->fops->reenumeration(pcd);
+		gintsts.b.enumdone = 1;
+	} else {
+		dcfg.b.devaddr = 0;
+		DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
+	
+		/* setup EP0 to receive SETUP packets */
+		if (core_if->snpsid <= OTG_CORE_REV_2_94a)
+			ep0_out_start(core_if, pcd);
+	}
 
 	/* Clear interrupt */
-	gintsts.d32 = 0;
 	gintsts.b.usbreset = 1;
 	DWC_WRITE_REG32(&core_if->core_global_regs->gintsts, gintsts.d32);
 
@@ -1040,7 +1047,8 @@ int32_t dwc_otg_pcd_handle_enum_done_intr(dwc_otg_pcd_t * pcd)
 	    GET_CORE_IF(pcd)->core_global_regs;
 	uint8_t utmi16b, utmi8b;
 	int speed;
-	DWC_DEBUGPL(DBG_PCD, "SPEED ENUM\n");
+
+	DWC_PRINTF("SPEED ENUM\n");
 
 	if (GET_CORE_IF(pcd)->snpsid >= OTG_CORE_REV_2_60a) {
 		utmi16b = 6;	//vahrama old value was 6;
@@ -3102,9 +3110,18 @@ static void dwc_otg_pcd_handle_noniso_bna(dwc_otg_pcd_ep_t * ep)
 	dwc_otg_core_if_t *core_if = ep->pcd->core_if;
 	int i, start;
 
+	if (dwc_ep->is_in == 0) {
+		addr =
+		    &GET_CORE_IF(pcd)->dev_if->out_ep_regs[dwc_ep->num]->
+		    doepctl;
+	} else {
+		addr =
+		    &GET_CORE_IF(pcd)->dev_if->in_ep_regs[dwc_ep->num]->diepctl;
+	}
+
 	if (!dwc_ep->desc_cnt) {
-		DWC_WARN("Ep%d %s Descriptor count = %d \n", dwc_ep->num,
-			 (dwc_ep->is_in ? "IN" : "OUT"), dwc_ep->desc_cnt);
+		DWC_WARN("Ep%d %s Descriptor count = %d depctl = 0x%x\n", dwc_ep->num,
+			 (dwc_ep->is_in ? "IN" : "OUT"), dwc_ep->desc_cnt,DWC_READ_REG32(addr));
 		return;
 	}
 
@@ -3128,14 +3145,6 @@ static void dwc_otg_pcd_handle_noniso_bna(dwc_otg_pcd_ep_t * ep)
 		dma_desc->status.d32 = sts.d32;
 	}
 
-	if (dwc_ep->is_in == 0) {
-		addr =
-		    &GET_CORE_IF(pcd)->dev_if->out_ep_regs[dwc_ep->num]->
-		    doepctl;
-	} else {
-		addr =
-		    &GET_CORE_IF(pcd)->dev_if->in_ep_regs[dwc_ep->num]->diepctl;
-	}
 	depctl.b.epena = 1;
 	depctl.b.cnak = 1;
 	DWC_MODIFY_REG32(addr, 0, depctl.d32);

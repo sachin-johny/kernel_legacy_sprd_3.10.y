@@ -2642,7 +2642,7 @@ void ep_xfer_timeout(void *ptr)
 	}
 
 	ep_num = xfer_info->ep->num;
-	//DWC_WARN("%s: timeout on endpoit %d\n", __func__, ep_num);
+
 	/* Put the sate to 2 as it was time outed */
 	xfer_info->state = 2;
 
@@ -2664,8 +2664,6 @@ void ep_xfer_timeout(void *ptr)
 	if (!gintsts.b.goutnakeff) {
 		dctl.b.sgoutnak = 1;
 	}
-	DWC_WRITE_REG32(&xfer_info->core_if->dev_if->dev_global_regs->dctl,
-			dctl.d32);
 
 }
 
@@ -3944,8 +3942,6 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 				core_if->ep_xfer_info[ep->num].ep = ep;
 				core_if->ep_xfer_info[ep->num].state = 1;
 
-				/* Start a timer for this transfer. */
-				DWC_TIMER_SCHEDULE(core_if->ep_xfer_timer[ep->num], 10000);
 			}
 		}
 	}

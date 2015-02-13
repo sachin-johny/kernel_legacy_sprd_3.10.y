@@ -138,7 +138,9 @@ static struct dwc_otg_pcd_ep *ep_from_handle(dwc_otg_pcd_t * pcd, void *handle)
 }
 #endif
 extern int in_calibration(void);
-
+extern void dwc_otg_pcd_stop(dwc_otg_pcd_t *pcd);
+static void dwc_otg_clear_all_int(dwc_otg_core_if_t *core_if);
+static struct timer_list reinit_USB_timer;
 static int factory_mode = false;
 static int __init factory_start(char *str)
 {
@@ -152,6 +154,41 @@ __setup("factory", factory_start);
 int in_factory_mode(void)
 {
 	return (factory_mode == true);
+}
+
+static void reinit_USB_timer_fun(unsigned long para)
+{
+	struct gadget_wrapper *d;
+
+	d = gadget_wrapper;
+	
+	DWC_PRINTF("reinit start ...\n");
+	dwc_otg_disable_global_interrupts(GET_CORE_IF(d->pcd));
+	dwc_otg_clear_all_int(GET_CORE_IF(d->pcd));
+	dwc_otg_pcd_stop(d->pcd);
+	udc_disable();
+	mdelay(500);
+	udc_enable();
+	dwc_otg_core_init(GET_CORE_IF(d->pcd));
+	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
+	dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
+
+	del_timer(&reinit_USB_timer);
+}
+void _reinit_usb_later(dwc_otg_pcd_t *pcd)
+{
+	dctl_data_t	dctl = {.d32=0};
+	dwc_otg_dev_if_t *dev_if;
+
+	dev_if = pcd->core_if->dev_if;
+	dctl.d32 = DWC_READ_REG32(&dev_if->dev_global_regs->dctl);
+	dctl.b.sftdiscon = 1;
+	DWC_WRITE_REG32(&dev_if->dev_global_regs->dctl, dctl.d32);
+	
+	DWC_PRINTF("call reinit USB controller...\n");
+	setup_timer(&reinit_USB_timer, reinit_USB_timer_fun, \
+			(unsigned long) gadget_wrapper);
+	mod_timer(&reinit_USB_timer, jiffies + 10*HZ);
 }
 #ifdef USB_SETUP_TIMEOUT_RESTART
 static struct timer_list setup_transfer_timer;
@@ -668,7 +705,6 @@ static int wakeup(struct usb_gadget *gadget)
 	return 0;
 }
 
-extern void dwc_otg_pcd_stop(dwc_otg_pcd_t *pcd);
 
 static void __udc_startup(void);
 static void __udc_shutdown(void);
@@ -907,6 +943,7 @@ static const struct dwc_otg_pcd_function_ops fops = {
 #ifdef DWC_UTE_CFI
 	.cfi_setup = _cfi_setup,
 #endif
+	.reenumeration = _reinit_usb_later,
 };
 
 /**
