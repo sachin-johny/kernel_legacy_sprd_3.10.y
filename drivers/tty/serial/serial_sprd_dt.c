@@ -117,6 +117,15 @@
 #define BAUD_2500000_48M 0x0013
 #define BAUD_3000000_48M 0x0010
 
+#define UART_DUMP_REG   1
+#define UART_TX_DATA_INFO 2
+#define UART_TX_DEBUG_FUNC_CLOSE 3
+
+struct uart_sprd_debug
+{
+	int debug_function_flag; //open uart debug function
+};
+
 static struct wake_lock uart_rx_lock;	// UART0  RX  IRQ
 static bool is_uart_rx_wakeup;
 static struct serial_data plat_data;
@@ -199,10 +208,13 @@ static inline void serial_sprd_rx_chars(int irq, void *dev_id)
 {
 	struct uart_port *port = (struct uart_port *)dev_id;
 	struct tty_port *tty = &port->state->port;
+	struct uart_sprd_debug *temp_data = (struct uart_sprd_debug *)(port->private_data);
 	unsigned int status, ch, flag, lsr, max_count = 2048;
-
+	int mm = 0;
 	status = serial_in(port, ARM_UART_STS1);
 	lsr = serial_in(port, ARM_UART_STS0);
+	if (temp_data->debug_function_flag)
+		printk("sprd tty%d RX[]; ", port->line);
 	while ((status & 0x00ff) && max_count--) {
 		ch = serial_in(port, ARM_UART_RXD);
 		flag = TTY_NORMAL;
@@ -244,11 +256,20 @@ static inline void serial_sprd_rx_chars(int irq, void *dev_id)
 			goto ignore_char;
 
 		uart_insert_char(port, lsr, UART_LSR_OE, ch, flag);
+		if (temp_data->debug_function_flag) {
+			if (mm++ < 10)
+				printk("%X_ ", ch);
+		}
 ignore_char:
 		status = serial_in(port, ARM_UART_STS1);
 		lsr = serial_in(port, ARM_UART_STS0);
 	}
 	//tty->low_latency = 1;
+	if (temp_data->debug_function_flag) {
+		printk("\n ");
+		printk("UART%d , STS0:0X%08X, Uart_src_clk =%d, BAUD_REG= %x,RX_DATA = %d\n", port->line,
+			serial_in(port, ARM_UART_STS0), port->uartclk,serial_in(port,ARM_UART_CLKD0), (2048-max_count));
+	}
 	tty_flip_buffer_push(tty);
 }
 
@@ -256,6 +277,7 @@ static inline void serial_sprd_tx_chars(int irq, void *dev_id)
 {
 	struct uart_port *port = dev_id;
 	struct circ_buf *xmit = &port->state->xmit;
+	struct uart_sprd_debug *temp_data = (struct uart_sprd_debug *)(port->private_data);
 	int count;
 
 	if (port->x_char) {
@@ -269,6 +291,16 @@ static inline void serial_sprd_tx_chars(int irq, void *dev_id)
 		return;
 	}
 	count = SP_TX_FIFO;
+
+	if (temp_data->debug_function_flag) {
+		int i;
+		printk("sprd tty%d TX[]; ", port->line);
+		for(i=0; i < 10; i++) {
+			printk("%X_ ", xmit->buf[xmit->tail+i]);
+		}
+		printk("\n ");
+	}
+
 	do {
 		serial_out(port, ARM_UART_TXD, xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
@@ -276,6 +308,12 @@ static inline void serial_sprd_tx_chars(int irq, void *dev_id)
 		if (uart_circ_empty(xmit))
 			break;
 	} while (--count > 0);
+
+	if (temp_data->debug_function_flag) {
+		printk("UART%d , STS0:0X%08X, Uart_src_clk =%d, BAUD_REG= %x\n,Tx_data_count = %d \n",
+			port->line, serial_in(port, ARM_UART_STS0), port->uartclk,
+			serial_in(port, ARM_UART_CLKD0), (count ? (SP_TX_FIFO - count+1) : SP_TX_FIFO));
+	}
 
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS) {
 		uart_write_wakeup(port);
@@ -550,6 +588,57 @@ static int serial_sprd_verify_port(struct uart_port *port,
 		return -EINVAL;
 	return 0;
 }
+static int serial_sprd_dump_reg(struct uart_port *port)
+{
+	printk("UART%d STS0 0X0008: 0X%08X\n\n", port->line, serial_in(port, ARM_UART_STS0));
+	printk("UART%d STS1 0X000C: 0X%08X\n\n", port->line, serial_in(port, ARM_UART_STS1));
+	printk("UART%d IEN   0X0010: 0X%08X\n\n", port->line, serial_in(port, ARM_UART_IEN));
+	printk("UART%d CTL0 0X0018: 0X%08X\n\n", port->line, serial_in(port, ARM_UART_CTL0));
+	printk("UART%d CTL1 0X001C: 0X%08X\n\n", port->line, serial_in(port, ARM_UART_CTL1));
+	printk("UART%d CTL2 0X0020: 0X%08X\n\n", port->line, serial_in(port, ARM_UART_CTL2));
+	printk("UART%d CLKD 0x0024: 0X%08X\n\n", port->line, serial_in(port, ARM_UART_CLKD0));
+	printk("UART%d STS2 0x002C: 0X%08X\n\n", port->line, serial_in(port, ARM_UART_STS2));
+	printk("UART%d CLK SOURCE: %d \n", port->line, port->uartclk );
+}
+
+static ssize_t serial_sprd_config_reg_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct uart_port *port = dev_get_drvdata(dev);
+	unsigned int pinmap_uart_conf = 0;
+	unsigned int uartclk_source = 0;
+	unsigned int uart_reg_clk = 0;
+
+	uartclk_source  = port->uartclk;
+	uart_reg_clk = serial_in(port, ARM_UART_CLKD0);
+
+	return snprintf(buf, PAGE_SIZE, "uart%d config info:\nclk source: %d\nuart %d baundrate config:0x%x\n",
+		port->line,uartclk_source,port->line,uart_reg_clk);
+}
+
+static ssize_t serial_sprd_config_reg_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct uart_port *port = dev_get_drvdata(dev);
+	struct uart_sprd_debug *temp_data;
+	int user_flag = 0;
+
+	temp_data = (struct uart_sprd_debug *)(port->private_data);
+	if (!sscanf(buf, "%d", &user_flag))
+		return 0;
+	if(user_flag == UART_DUMP_REG)
+		serial_sprd_dump_reg(port);
+	else if (user_flag == UART_TX_DATA_INFO) {
+		temp_data->debug_function_flag = 1;
+	}
+	else if (user_flag == UART_TX_DEBUG_FUNC_CLOSE) {
+		temp_data->debug_function_flag = 0;
+	}
+
+	return count;
+}
+static DEVICE_ATTR(uart_conf, S_IRWXU | S_IRWXG, serial_sprd_config_reg_show,
+	serial_sprd_config_reg_store);
 
 static struct uart_ops serial_sprd_ops = {
 	.tx_empty = serial_sprd_tx_empty,
@@ -629,6 +718,7 @@ static int serial_sprd_setup_port(struct platform_device *pdev,
 	struct serial_data plat_local_data;
 	struct uart_port *up;
 	struct device_node *np = pdev->dev.of_node;
+	struct uart_sprd_debug * private_data ;
 
 	up = kzalloc(sizeof(*up), GFP_KERNEL);
 	if (up == NULL) {
@@ -649,6 +739,9 @@ static int serial_sprd_setup_port(struct platform_device *pdev,
 	up->ops = &serial_sprd_ops;
 	up->flags = ASYNC_BOOT_AUTOCONF;
 
+	private_data = kmalloc(sizeof(struct uart_sprd_debug), GFP_KERNEL);
+	private_data->debug_function_flag = 0;
+	up->private_data = private_data;
 	serial_sprd_ports[pdev->id] = up;
 
 	clk_startup(pdev);
@@ -816,6 +909,7 @@ static int serial_sprd_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "serial driver get platform data failed\n");
 		return -ENODEV;
 	}
+	ret = device_create_file(&(pdev->dev), &dev_attr_uart_conf);
 	plat_data = *(struct serial_data *)(pdev->dev.platform_data);
 	printk("bt host wake up type is %d, clk is %d \n",
 	       plat_data.wakeup_type, plat_data.clk);
