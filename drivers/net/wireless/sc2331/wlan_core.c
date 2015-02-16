@@ -956,6 +956,42 @@ static int wlan_hw_init(hw_info_t *hw)
 	return OK;
 }
 
+static int send_arp(char vif_id, char *mac, char *ip)
+{
+	int              len;
+	struct sk_buff  *skb;
+	msg_q_t         *msg_q;
+	tx_msg_t         msg = {0};
+	unsigned char arp_hex[] =
+	{
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x40, 0x45, 0xda,
+		0x75, 0xe4, 0x76, 0x08, 0x06, 0x00, 0x01, 0x08, 0x00,
+		0x06, 0x04, 0x00, 0x01, 0x40, 0x45, 0xda, 0x75, 0xe4,
+		0x76, 0xc0, 0xa8, 0x01, 0x9c, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0xc0, 0xa8, 0x01, 0x01
+	};
+	memcpy(&(arp_hex[6]),  mac,    6);
+	memcpy(&(arp_hex[22]), mac,    6);
+	memcpy(&(arp_hex[28]), ip,     4);
+	memcpy(&(arp_hex[38]), ip,     4);
+	arp_hex[41] = 0x01;
+	len = sizeof(arp_hex);
+	skb = dev_alloc_skb(len + NET_IP_ALIGN);
+	skb_reserve(skb, NET_IP_ALIGN);
+	memcpy(skb->data,   (char *)&(arp_hex[0]),  len);
+	skb_put(skb, len);
+	msg.p = (void *)skb;
+	msg.slice[0].data = skb->data;
+	msg.slice[0].len  = skb->len;
+	msg.hdr.mode      = vif_id;
+	msg.hdr.type      = HOST_SC2331_PKT;
+	msg.hdr.subtype   = 0;
+	msg.hdr.len = skb->len;
+	msg_q = &(g_wlan.netif[vif_id].msg_q[1]);
+	msg_q_in(msg_q, &msg);
+	return 0;
+}
+
 static int wlan_inetaddr_event(struct notifier_block *this,
 			       unsigned long event, void *ptr)
 {
@@ -988,6 +1024,9 @@ static int wlan_inetaddr_event(struct notifier_block *this,
 	case NETDEV_UP:
 		printkd("inetaddr UP event is comming in !\n");
 		wlan_cmd_get_ip(vif_id, (u8 *)&ifa->ifa_address);
+		if(vif_id == NETIF_1_ID)
+			send_arp(vif_id, (char *)&(dev->dev_addr[0]),
+			          (char *) & ifa->ifa_address );
 		break;
 	case NETDEV_DOWN:
 		printkd("inetaddr DOWN event is comming in  !\n");
