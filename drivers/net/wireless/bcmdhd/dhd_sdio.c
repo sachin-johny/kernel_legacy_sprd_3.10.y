@@ -6466,6 +6466,12 @@ bool dhd_bus_dev_pm_enabled(dhd_pub_t *dhdpub)
 	return enabled;
 }
 
+/* Set default trigger throughput is 10Mbps */
+#define DHD_POLLING_THROUGHPUT_THRESHOLD (10*1024*1024/8)
+	static unsigned long dhd_last_txbytes = 0;
+	static unsigned long dhd_last_rxbytes = 0;
+	static unsigned int dhd_second_count = 0;
+
 extern bool
 dhd_bus_watchdog(dhd_pub_t *dhdp)
 {
@@ -6491,6 +6497,24 @@ dhd_bus_watchdog(dhd_pub_t *dhdp)
 		return FALSE;
 
 	dhd_os_sdlock(bus->dhd);
+
+	dhd_second_count++;
+
+	if(dhd_second_count >= ( 1000 / CUSTOM_DHD_WATCHDOG_MS)) {
+        if ((bus->poll != TRUE) && (((dhdp->dstats.tx_bytes - dhd_last_txbytes) + (dhdp->dstats.rx_bytes - dhd_last_rxbytes))
+            > DHD_POLLING_THROUGHPUT_THRESHOLD)) {
+            bus->poll = TRUE;
+            //printf("polling enable. %lu > %d\n", ((dhdp->dstats.tx_bytes - dhd_last_txbytes) + (dhdp->dstats.rx_bytes - dhd_last_rxbytes)), DHD_POLLING_THROUGHPUT_THRESHOLD);
+        } else if ((bus->poll != FALSE) && (((dhdp->dstats.tx_bytes - dhd_last_txbytes) + (dhdp->dstats.rx_bytes - dhd_last_rxbytes))
+            <= DHD_POLLING_THROUGHPUT_THRESHOLD)){
+            bus->poll = FALSE;
+            //printf("polling disable. %lu <= %d\n", ((dhdp->dstats.tx_bytes - dhd_last_txbytes) + (dhdp->dstats.rx_bytes - dhd_last_rxbytes)), DHD_POLLING_THROUGHPUT_THRESHOLD);
+        }
+
+        dhd_last_txbytes = dhdp->dstats.tx_bytes;
+        dhd_last_rxbytes = dhdp->dstats.rx_bytes;
+        dhd_second_count = 0;
+    }
 
 	/* Poll period: check device if appropriate. */
 	//if (!SLPAUTO_ENAB(bus) && (bus->poll && (++bus->polltick >= bus->pollrate))) {
