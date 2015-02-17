@@ -777,6 +777,11 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 			DWC_WRITE_REG32(&dev_if->out_ep_regs[0]->doepdma,
 					dev_if->dma_setup_desc_addr
 					[dev_if->setup_desc_index]);
+			/**	printk("ep0 dma_desc_addr[%d].dmareg(0x%x) == (0x%x , 0x%x: 0x%x,0x%x)\n", 
+				dev_if->setup_desc_index,&dev_if->out_ep_regs[0]->doepdma,
+				dma_desc, dev_if->dma_setup_desc_addr[dev_if->setup_desc_index],
+				DWC_READ_REG32(&dev_if->out_ep_regs[0]->doepdma),dma_desc->status.d32);
+			*/
 		}
 
 	} else {
@@ -3103,26 +3108,40 @@ static void dwc_otg_pcd_handle_noniso_bna(dwc_otg_pcd_ep_t * ep)
 {
 	dwc_ep_t *dwc_ep = &ep->dwc_ep;
 	volatile uint32_t *addr;
+	volatile uint32_t *dmskaddr;
+	volatile uint32_t *dmaaddr;
 	depctl_data_t depctl = {.d32 = 0 };
 	dwc_otg_pcd_t *pcd = ep->pcd;
 	dwc_otg_dev_dma_desc_t *dma_desc;
 	dev_dma_desc_sts_t sts = {.d32 = 0 };
 	dwc_otg_core_if_t *core_if = ep->pcd->core_if;
+	doepmsk_data_t depmsk;
+
 	int i, start;
 
 	if (dwc_ep->is_in == 0) {
 		addr =
 		    &GET_CORE_IF(pcd)->dev_if->out_ep_regs[dwc_ep->num]->
 		    doepctl;
+		dmaaddr = &GET_CORE_IF(pcd)->dev_if->out_ep_regs[dwc_ep->num]->doepdma;
+		dmskaddr = &GET_CORE_IF(pcd)->dev_if->dev_global_regs->doepmsk;
 	} else {
 		addr =
 		    &GET_CORE_IF(pcd)->dev_if->in_ep_regs[dwc_ep->num]->diepctl;
+		dmaaddr = &GET_CORE_IF(pcd)->dev_if->in_ep_regs[dwc_ep->num]->diepdma;
+		dmskaddr = &GET_CORE_IF(pcd)->dev_if->dev_global_regs->diepmsk;
+                
 	}
 
 	if (!dwc_ep->desc_cnt) {
-		DWC_WARN("Ep%d %s Descriptor count = %d depctl = 0x%x\n", dwc_ep->num,
-			 (dwc_ep->is_in ? "IN" : "OUT"), dwc_ep->desc_cnt,DWC_READ_REG32(addr));
-		return;
+		dma_desc = core_if->dev_if->setup_desc_addr[core_if->dev_if->setup_desc_index];
+		DWC_WARN("Ep%d %s DescCnt[%d]=%d depctl=0x%x  depdma(0x%x)=0x%x (0x%x).sta=0x%x\n",
+			 dwc_ep->num, (dwc_ep->is_in ? "IN" : "OUT"),core_if->dev_if->setup_desc_index
+			, dwc_ep->desc_cnt, DWC_READ_REG32(addr),dmaaddr,
+			DWC_READ_REG32(dmaaddr),dma_desc,dma_desc->status.d32);
+		depmsk.d32 = DWC_READ_REG32(dmskaddr);
+		depmsk.b.bna = 0;
+		DWC_WRITE_REG32(dmskaddr,depmsk.d32);
 	}
 
 	if (core_if->core_params->cont_on_bna && !dwc_ep->is_in
