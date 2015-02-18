@@ -270,6 +270,25 @@ void set_sprd_download_fin(int dl_tag)
 }
 EXPORT_SYMBOL_GPL(set_sprd_download_fin);
 
+unsigned int irq_count_change = 0;
+unsigned int irq_count_change_last = 0;
+bool get_sprd_marlin_status(void)
+{
+	printk(KERN_INFO "irq_count_change:%d\n",irq_count_change);
+	printk(KERN_INFO "irq_count_change_last:%d\n",irq_count_change_last);
+
+	if((irq_count_change == 0)&&(irq_count_change_last == 0))
+		return 1;
+	else if(irq_count_change != irq_count_change_last)
+	{
+		irq_count_change_last = irq_count_change;
+		return 1;
+	}
+	else
+		return 0;
+}
+EXPORT_SYMBOL_GPL(get_sprd_marlin_status);
+
 atomic_t              is_wlan_open;    //0: wlan close,  1: wlan open
 
 int set_wlan_status(int status)
@@ -1195,6 +1214,9 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	irq_set_irq_type(irq,IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING);
 	gpio_wake_status = gpio_get_value(GPIO_MARLIN_WAKE);
 
+	/*add count irq for loopcheck*/
+	irq_count_change++;
+
 	/* avoid gpio jump , so need check the last and cur gpio value.*/	
 	do_gettimeofday(&cur_time);
 	if(ack_gpio_status == gpio_wake_status)
@@ -1566,6 +1588,7 @@ static void* sdio_dev_get_host(void)
 void  marlin_sdio_uninit(void)
 {
 	sdio_unregister_driver(&marlin_sdio_driver);
+	mgr_suspend_defint();
 	sdio_dev_host = NULL;
 	have_card = 0;
 

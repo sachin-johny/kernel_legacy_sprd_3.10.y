@@ -110,7 +110,7 @@ void mdbg_loopcheck_read(void)
 		MDBG_ERR( "The loopcheck data len:%d, beyond max read:%d",read_len,MDBG_LOOPCHECK_SIZE);
 
 	sdio_dev_read(MDBG_CHANNEL_LOOPCHECK,mdbg_proc->loopcheck.buf,&read_len);
-	//printk(KERN_INFO "mdbg_loopcheck_read:%s\n",mdbg_proc->loopcheck.buf);
+	printk(KERN_INFO "mdbg_loopcheck_read:%s\n",mdbg_proc->loopcheck.buf);
 	mdbg_proc->loopcheck.rcv_len = read_len;
 	complete(&mdbg_proc->loopcheck.completed);
 
@@ -221,14 +221,18 @@ static ssize_t mdbg_proc_read(struct file *filp,
 
 		if(first_boot < 2){
 			if(copy_to_user((void __user *)buf, "loopcheck_ack", 13)){
-				MDBG_ERR("Read loopcheck info error\n");
+				MDBG_ERR("Read loopcheck first info error\n");
 			}
 			first_boot++;
 			len = 13;
-		}
-		else{
+		}else if(get_sprd_marlin_status()){
+			if(copy_to_user((void __user *)buf, "loopcheck_ack", 13)){
+				MDBG_ERR("loopcheck gpio info error\n");
+			}
+			len = 13;
+		}else{
 			if(copy_to_user((void __user *)buf, mdbg_proc->loopcheck.buf, min(count,(size_t)MDBG_LOOPCHECK_SIZE))){
-				MDBG_ERR("Read loopcheck info error\n");
+				MDBG_ERR("Read loopcheck sdio info error\n");
 			}
 			len = mdbg_proc->loopcheck.rcv_len;
 		}
@@ -269,9 +273,15 @@ static ssize_t mdbg_proc_write(struct file *filp,
 	if (copy_from_user(mdbg_proc->write_buf,buf,count )){
 		return -EFAULT;
 	}
-	//printk(KERN_INFO "mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
 
-	mdbg_send(mdbg_proc->write_buf , count, MDBG_WCN_WRITE);
+	if(strncmp(mdbg_proc->write_buf,"at+loopcheck",12) == 0){
+		printk(KERN_INFO "mdbg start wake marlin\n");
+		set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x1);
+	}
+	else{
+		mdbg_send(mdbg_proc->write_buf , count, MDBG_WCN_WRITE);
+	}
+	printk(KERN_INFO "mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
 
 	return count;
 }
