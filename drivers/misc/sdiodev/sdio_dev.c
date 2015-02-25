@@ -1005,7 +1005,11 @@ static irqreturn_t marlin_irq_handler(int irq, void * para)
 	wake_lock(&marlin_wakelock);
 	irq_set_irq_type(irq,IRQF_TRIGGER_RISING);
 
-	if(NULL != sdio_tran_handle[WIFI_CHN_8].tran_callback_para)
+	if(get_sprd_download_fin() != 1)
+	{
+		schedule_work(&marlin_wq);
+	}
+	else if(NULL != sdio_tran_handle[WIFI_CHN_8].tran_callback_para)
 	{
 		sdio_tran_handle[WIFI_CHN_8].tran_callback_para(WIFI_CHN_8);
 		wake_unlock(&marlin_wakelock);
@@ -1587,6 +1591,7 @@ static void* sdio_dev_get_host(void)
 
 void  marlin_sdio_uninit(void)
 {
+	set_sprd_download_fin(0);
 	sdio_unregister_driver(&marlin_sdio_driver);
 	mgr_suspend_defint();
 	sdio_dev_host = NULL;
