@@ -27,7 +27,7 @@
 #define MDBG_LOOPCHECK_SIZE			(128)
 #define MDBG_AT_CMD_SIZE 			(128)
 
-unsigned int read_flag = 0;
+unsigned int mdbg_read_count = 0;
 unsigned int first_boot = 0;
 
 struct mdbg_devvice_t *mdbg_dev=NULL;
@@ -421,7 +421,7 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 
 	if (timeout < 0){
 		/* wait forever */
-		rval = wait_event_interruptible(mdbg_wait,read_flag > 0);
+		rval = wait_event_interruptible(mdbg_wait,mdbg_read_count > 0);
 		if (rval < 0){
 			MDBG_ERR("mdbg_read wait interrupted!\n");
 		}
@@ -431,14 +431,14 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 
 	mutex_lock(&mdbg_dev->mdbg_lock);
 
-	if(read_flag <= 0){
+	if(mdbg_read_count <= 0){
 		mutex_unlock(&mdbg_dev->mdbg_lock);
 		//MDBG_ERR("data no ready");
 		return 0;
 	}
 
 	read_size = mdbg_receive(mdbg_dev->read_buf , MDBG_MAX_BUFFER_LEN);
-	printk_ratelimited(KERN_INFO "%s read_size: %d\n",__func__,read_size);
+	printk(KERN_INFO "%s read_size: %d mdbg_read_count:%d\n",__func__,read_size,mdbg_read_count);
 
 	if((read_size > 0) && (read_size <= MDBG_MAX_BUFFER_LEN)){
 		MDBG_LOG("Show %d bytes data.",read_size);
@@ -448,7 +448,7 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 			MDBG_ERR("copy from user fail!");
 			return -EFAULT;
 		}
-		read_flag--;
+		mdbg_read_count -= read_size;
 		mutex_unlock(&mdbg_dev->mdbg_lock);
 		return read_size;
 	}else{
@@ -514,7 +514,7 @@ static unsigned int mdbg_poll(struct file *filp, poll_table *wait)
 	unsigned int mask = 0;
 
 	poll_wait(filp, &mdbg_dev->rxwait, wait);
-	if(read_flag > 0)
+	if(mdbg_read_count > 0)
 		mask |= POLLIN | POLLRDNORM;
 
 	return mask;

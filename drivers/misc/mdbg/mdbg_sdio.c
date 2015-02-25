@@ -20,7 +20,7 @@
 /*******************************************************/
 MDBG_RING_T* rx_ring;
 struct mutex mdbg_read_mutex;
-extern unsigned int read_flag;
+extern unsigned int mdbg_read_count;
 extern wait_queue_head_t	mdbg_wait;
 extern unsigned int first_boot;
 extern struct mdbg_devvice_t *mdbg_dev;
@@ -120,7 +120,7 @@ PUBLIC void mdbg_sdio_read(void)
 	}
 	sdio_dev_read(MDBG_CHANNEL_READ,mdbg_rx_buff,&sdio_read_len);
 	sdio_read_len = mdbg_ring_write(rx_ring,mdbg_rx_buff, sdio_read_len);
-	read_flag++;
+	mdbg_read_count += sdio_read_len;
 	wake_up_interruptible(&mdbg_wait);
 	wake_up_interruptible(&mdbg_dev->rxwait);
 
