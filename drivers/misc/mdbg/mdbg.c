@@ -274,6 +274,11 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		return -EFAULT;
 	}
 
+	if(strncmp(mdbg_proc->write_buf,"startwcn",8) == 0){
+		first_boot = 0;
+		return count;
+	}
+
 	if(strncmp(mdbg_proc->write_buf,"at+loopcheck",12) == 0){
 		printk(KERN_INFO "mdbg start wake marlin\n");
 		set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x1);
