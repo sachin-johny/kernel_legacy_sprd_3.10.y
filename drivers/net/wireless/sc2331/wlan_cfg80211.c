@@ -2091,6 +2091,22 @@ void cfg80211_report_cqm_beacon_loss(unsigned char vif_id,
 	}
 }
 
+void cfg80211_report_mlme_tx_status(unsigned char vif_id,
+				unsigned char *pdata, int len)
+{
+	struct wlan_report_mgmt_tx_status *tx_status = NULL;
+	wlan_vif_t *vif;
+
+	vif = id_to_vif(vif_id);
+	tx_status = (struct wlan_report_mgmt_tx_status *)pdata;
+	printkd("[%s]: index: %lld\n", __func__,tx_status->cookie);
+	printkd("data len is %d\n", len);
+	hex_dump("receive is:", strlen("receive is:"), pdata, len);
+	cfg80211_mgmt_tx_status(&vif->wdev, tx_status->cookie, tx_status->buf,
+				tx_status->len, tx_status->ack, GFP_KERNEL);
+	printkd("cfg80211_mgmt_tx_status end\n");
+}
+
 static int wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 				 struct wireless_dev *wdev,
@@ -2125,18 +2141,26 @@ static int wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
 	int ret = -1;
 	wlan_vif_t *vif;
 	unsigned char vif_id;
+	static u64 mgmt_index = 0;
+
+	mgmt_index++;
 	vif = ndev_to_vif(wdev->netdev);
 	vif_id = vif->id;
 	if (ITM_NONE_MODE == vif->mode)
 		return -EAGAIN;
 	printkd("[%s][%d] enter\n", __func__, vif_id);
+	printkd("[%s], index: %lld, cookie: %lld\n", __func__, mgmt_index, *cookie);
+	*cookie = mgmt_index;
 	if (len > 0) {
-		ret = wlan_cmd_set_tx_mgmt(vif_id, chan, wait, buf, len);
+		ret = wlan_cmd_set_tx_mgmt(vif_id, chan, dont_wait_for_ack, wait, cookie, buf, len);
+		if (ret) {
+			if(dont_wait_for_ack == false)
+				cfg80211_mgmt_tx_status(wdev, *cookie, buf, len, 0,GFP_KERNEL);
+			printkd("[%s] Failed to set tx mgmt!\n", __func__);
+			return ret;
+		}
 	}
-	if (-1 == ret)
-		return -1;
-	cfg80211_mgmt_tx_status(&(vif->wdev), *cookie, buf, len, 1, GFP_KERNEL);
-	return 0;
+	return ret;
 }
 
 static void wlan_cfg80211_mgmt_frame_register(struct wiphy *wiphy,

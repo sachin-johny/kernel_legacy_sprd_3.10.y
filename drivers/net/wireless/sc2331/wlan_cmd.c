@@ -78,6 +78,10 @@ static cmd_t g_cmd_table[] = {
 	CMD_ITEM(WIFI_EVENT_REPORT_MIC_FAIL),
 	CMD_ITEM(WIFI_CMD_REQ_LTE_CONCUR),
 	CMD_ITEM(WIFI_CMD_SCAN_NOR_CHANNELS),
+	CMD_ITEM(WIFI_EVENT_REPORT_CQM_RSSI_LOW),
+	CMD_ITEM(WIFI_EVENT_REPORT_CQM_RSSI_HIGH),
+	CMD_ITEM(WIFI_EVENT_REPORT_CQM_RSSI_LOSS_BEACON),
+	CMD_ITEM(WIFI_EVENT_MLME_TX_STATUS),
 };
 
 char *get_cmd_name(int id)
@@ -315,10 +319,11 @@ int wlan_cmd_set_ft_ie(unsigned char vif_id, const unsigned char *ies,
 	return wlan_cmd_send_recv(vif_id, ptr, dataLen, WIFI_CMD_SET_FT_IE,
 				  CMD_WAIT_TIMEOUT);
 }
-
 int wlan_cmd_set_tx_mgmt(unsigned char vif_id,
-			 struct ieee80211_channel *channel, unsigned int wait,
-			 const unsigned char *mac, size_t mac_len)
+			struct ieee80211_channel *channel,
+			u8 dont_wait_for_ack, unsigned int wait,
+			u64 *cookie, const unsigned char *mac,
+			size_t mac_len)
 {
 	unsigned short dataLen;
 	struct wlan_cmd_mgmt_tx_t *mgmt_tx;
@@ -330,7 +335,9 @@ int wlan_cmd_set_tx_mgmt(unsigned char vif_id,
 	send_chan = ieee80211_frequency_to_channel(channel->center_freq);
 
 	mgmt_tx->chan = send_chan;
+	mgmt_tx->dont_wait_for_ack = dont_wait_for_ack;
 	mgmt_tx->wait = wait;
+	mgmt_tx->cookie = *cookie;
 	mgmt_tx->len = mac_len;
 	memcpy(mgmt_tx->value, mac, mac_len);
 	ret =
@@ -1024,6 +1031,9 @@ int wlan_rx_event_process(const unsigned char vif_id, unsigned char event,
 		break;
 	case WIFI_EVENT_REPORT_CQM_RSSI_LOSS_BEACON:
 		cfg80211_report_cqm_beacon_loss(vif_id, pData, len);
+		break;
+	case WIFI_EVENT_MLME_TX_STATUS:
+		cfg80211_report_mlme_tx_status(vif_id, pData, len);
 		break;
 	default:
 		break;

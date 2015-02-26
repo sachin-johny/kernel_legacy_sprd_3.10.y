@@ -76,6 +76,7 @@ enum ITM_HOST_TROUT3_CMD_LIST {
 	WIFI_EVENT_REPORT_CQM_RSSI_LOW,
 	WIFI_EVENT_REPORT_CQM_RSSI_HIGH,
 	WIFI_EVENT_REPORT_CQM_RSSI_LOSS_BEACON,
+	WIFI_EVENT_MLME_TX_STATUS,
 	WIFI_EVENT_MAX,
 };
 
@@ -234,7 +235,9 @@ struct wlan_cmd_cancel_remain_chan_t {
 
 struct wlan_cmd_mgmt_tx_t {
 	u8 chan;		/* send channel */
+	u8 dont_wait_for_ack;	/*don't wait for ack*/
 	u32 wait;		/* wait time */
+	u64 cookie;    /* cookie */
 	u32 len;		/* mac length */
 	u8 value[0];		/* mac */
 } __attribute__ ((packed));
@@ -273,6 +276,13 @@ struct wlan_event_report_frame_t {
 	unsigned short frame_len;
 } __attribute__ ((packed));
 
+struct wlan_report_mgmt_tx_status {
+	u64 cookie;     /* cookie */
+	u8 ack;     /* status */
+	u32 len;    /* frame len */
+	u8  buf[0];     /* mgmt frame */
+}  __attribute__((packed));
+
 typedef struct {
 	unsigned char ops;
 	unsigned short channel;
@@ -295,7 +305,8 @@ extern int wlan_cmd_set_p2p_ie(unsigned char vif_id, u8 type, const u8 *ie,
 			       u16 len);
 extern int wlan_cmd_set_tx_mgmt(unsigned char vif_id,
 				struct ieee80211_channel *channel,
-				unsigned int wait, const u8 *mac,
+				u8 dont_wait_for_ack, unsigned int wait,
+				u64 *cookie, const unsigned char *mac,
 				size_t mac_len);
 extern int wlan_cmd_remain_chan(unsigned char vif_id,
 				struct ieee80211_channel *channel,

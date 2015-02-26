@@ -145,4 +145,6 @@ extern void cfg80211_report_cqm_high(unsigned char vif_id, unsigned char *pdata,
 				     int len);
 extern void cfg80211_report_cqm_beacon_loss(unsigned char vif_id,
 					    unsigned char *pdata, int len);
+extern void cfg80211_report_mlme_tx_status(unsigned char vif_id, unsigned char *pdata,
+					int len);
 #endif
