@@ -136,6 +136,10 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 				      struct mmc_blk_data *md);
 static int get_card_status(struct mmc_card *card, u32 *status, int retries);
 
+extern void mmc_power_off(struct mmc_host *host);
+static void bad_card_and_remove(struct mmc_host *host);
+extern void mmc_remove_card(struct mmc_card *card);
+extern void mmc_detach_bus(struct mmc_host *host);
 static inline void mmc_blk_clear_packed(struct mmc_queue_req *mqrq)
 {
 	struct mmc_packed *packed = mqrq->packed;
@@ -1809,6 +1813,9 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			if (err == -ENODEV ||
 				mmc_packed_cmd(mq_rq->cmd_type))
 				goto cmd_abort;
+			printk("%s MMC_BLK_DATA_ERR\n",__func__);
+			bad_card_and_remove(card->host);
+			break;
 			/* Fall through */
 		}
 		case MMC_BLK_ECC_ERR:
@@ -2429,6 +2436,24 @@ static int mmc_blk_resume(struct mmc_card *card)
 #define	mmc_blk_suspend	NULL
 #define mmc_blk_resume	NULL
 #endif
+static void bad_card_and_remove(struct mmc_host *host)
+{
+    if(host == NULL) {
+        printk("WARN: host is NULL\n");
+        return;
+    }
+    if(host->card == NULL) {
+        printk("WARN: mmc or card is NULL\n");
+        return;
+    }
+    if(mmc_card_sd(host->card)){
+       mmc_card_set_removed(host->card);
+	mmc_remove_card(host->card);
+	mmc_detach_bus(host);
+	mmc_power_off(host);
+      printk("%s defect card removed\n",__func__);
+    }
+}
 
 static struct mmc_driver mmc_driver = {
 	.drv		= {
