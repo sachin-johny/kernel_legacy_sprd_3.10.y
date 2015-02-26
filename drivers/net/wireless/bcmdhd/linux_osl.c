@@ -240,8 +240,10 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 			return NULL;
 		}
 		bzero(osh->cmn, sizeof(osl_cmn_t));
+#ifdef SHARED_OSL_CMN
 		if (osl_cmn)
 			*osl_cmn = osh->cmn;
+#endif
 		atomic_set(&osh->cmn->malloced, 0);
 		osh->cmn->dbgmem_list = NULL;
 		spin_lock_init(&(osh->cmn->dbgmem_lock));
