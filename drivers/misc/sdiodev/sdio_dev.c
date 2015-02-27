@@ -298,13 +298,56 @@ int set_wlan_status(int status)
 }
 EXPORT_SYMBOL_GPL(set_wlan_status);
 
+/*add start by sam.sun, 20150108, for get the screen status (on or off)	
+			return: 1 screen on	
+			     0 screen off	
+*/	
+#define BRIGHTNESS_PATH "/sys/class/backlight/sprd_backlight/brightness"	
+int get_screen_status(void)	
+{	
+	struct file *file = NULL;	
+	int is_screen_on = 1; 	
+	char * buf; //0~255 	
+	mm_segment_t old_fs;	
+	int size =0;	
+	loff_t pos = 0;	
 
+	file=filp_open(BRIGHTNESS_PATH, O_RDONLY, 0); 	
+	if (IS_ERR(file)) 		
+		SDIOTRAN_ERR("Open file %s failed /n",BRIGHTNESS_PATH);	
+		
+
+	old_fs = get_fs();	
+	set_fs(KERNEL_DS);	
+		
+	buf = (int *)kzalloc(4,GFP_KERNEL);	
+		
+	vfs_read(file, buf, 3, &pos);	
+		
+	size = strlen(buf);	
+
+	if( strncmp(buf,"0",(size-1))==0 )	
+		is_screen_on = 0; //screen off 	224	
+	else	
+		is_screen_on = 1; 	
+
+	//SDIOTRAN_ERR("*brightness is %s, is_screen_on is %d\r",buf, is_screen_on);
+	kfree(buf);	
+	filp_close(file, NULL);	
+	set_fs(old_fs);	
+	return is_screen_on;	
+}	
+/*add end by sam.sun, for get the screen status (on or off)*/
+
+extern bool get_bt_state(void);   // 1: bt open , 0: bt close
 int set_marlin_wakeup(uint32 chn,uint32 user_id)
 {
 	//user_id: wifi=0x1;bt=0x2
 #if !defined(CONFIG_MARLIN_NO_SLEEP)
 
 	int ret;
+	int screen_status = 1;
+	int bt_state ;
 	SDIOTRAN_DEBUG("entry");
 
 	if(get_sprd_download_fin() != 1)
@@ -312,7 +355,7 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		SDIOTRAN_ERR("marlin unready");
 		return -1;
 	}
-
+	
 	/*add for avoid bt ack 250ms high, then ap don't req cp and send data directly*/
 	if((1 == atomic_read(&(is_wlan_open))) && (1 == user_id) )
 	{
@@ -322,10 +365,17 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 			SDIOTRAN_ERR("err:bt req delay 300ms\n");
 		atomic_set(&is_wlan_open, 0);
 	}
+	
+ 	screen_status = get_screen_status();   // for wifi screen download
+ 	bt_state = get_bt_state();  
+	
+ 	if(((0 == sleep_para.gpio_opt_tag) ||((!screen_status) && (1 == user_id) && (!bt_state)) )&& \
+                (!gpio_get_value(GPIO_MARLIN_WAKE)))
 
-	if((0 == sleep_para.gpio_opt_tag) && \
-		(!gpio_get_value(GPIO_MARLIN_WAKE)))
+	//if((0 == sleep_para.gpio_opt_tag) && \
+	//	(!gpio_get_value(GPIO_MARLIN_WAKE)))
 	{	
+		//printk("\001" "0" "bt_state-%d",bt_state);
 		sleep_para.gpio_opt_tag = 1;//invoid re-entry this func.
 		if(user_id == 1)
 		{

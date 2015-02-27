@@ -45,6 +45,15 @@
 #include <linux/sprd_iommu.h>
 #include <linux/spinlock.h>
 #include <asm/system.h>
+#include <linux/kernel.h>	
+#include <linux/init.h>	
+#include <linux/module.h>	
+#include <linux/fs.h>
+#include <linux/string.h>	
+#include <linux/mm.h>
+#include <linux/syscalls.h>	
+#include <asm/unistd.h>	
+#include <asm/uaccess.h>
 
 typedef unsigned int uint32;
 typedef unsigned char uint8;
