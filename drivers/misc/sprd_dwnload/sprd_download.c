@@ -64,6 +64,7 @@ void sprd_download_sdio_read(void)
 	}
 
 	sdio_dev_read(DOWNLOAD_CHANNEL_READ,download_dev->read_buffer,&read_len);
+	printk(KERN_INFO "%s read: %s\n",__func__,download_dev->read_buffer);
 	flag_read = 1;
 	return;
 }

@@ -443,7 +443,7 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 	}
 
 	read_size = mdbg_receive(mdbg_dev->read_buf , MDBG_MAX_BUFFER_LEN);
-	printk(KERN_INFO "%s read_size: %d mdbg_read_count:%d\n",__func__,read_size,mdbg_read_count);
+	printk_ratelimited(KERN_INFO "%s read_size: %d mdbg_read_count:%d\n",__func__,read_size,mdbg_read_count);
 
 	if((read_size > 0) && (read_size <= MDBG_MAX_BUFFER_LEN)){
 		MDBG_LOG("Show %d bytes data.",read_size);
@@ -457,6 +457,7 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 		mutex_unlock(&mdbg_dev->mdbg_lock);
 		return read_size;
 	}else{
+		mdbg_read_count = 0;
 		mutex_unlock(&mdbg_dev->mdbg_lock);
 		MDBG_LOG("Show no data");
 		return (0);
