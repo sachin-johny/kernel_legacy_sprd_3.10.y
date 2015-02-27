@@ -553,7 +553,7 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 	if (len != left) {
 		if (ringhd->rxbuf_wrptr == ringhd->rxbuf_rdptr) {
 			//printk(KERN_EMERG "reset lock time %s, %d-%d-%d! \n", sbuf->rings[bufid].wake_lock_name ,dst, channel, bufid);
-			wake_lock_timeout(&(sbuf->rings[bufid].sbuf_wake_lock), HZ/50);
+			wake_unlock(&(sbuf->rings[bufid].sbuf_wake_lock));
 		}
 		rval = len - left;
 	}
