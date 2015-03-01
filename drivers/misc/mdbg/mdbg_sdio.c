@@ -77,6 +77,7 @@ int mdbg_channel_init(void)
 {
 	int err = 0;
 
+	mdbg_read_count = 0;
 	first_boot = 0;
 	err = sdiodev_readchn_init(MDBG_CHANNEL_READ, mdbg_sdio_read,0);
 	if(err != 0){

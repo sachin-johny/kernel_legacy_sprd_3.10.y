@@ -274,8 +274,15 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		return -EFAULT;
 	}
 
+	printk(KERN_INFO "mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
+
 	if(strncmp(mdbg_proc->write_buf,"startwcn",8) == 0){
 		first_boot = 0;
+		return count;
+	}
+
+	if(strncmp(mdbg_proc->write_buf,"dumpwcn",7) == 0){
+		mdbg_channel_init();
 		return count;
 	}
 
@@ -286,7 +293,6 @@ static ssize_t mdbg_proc_write(struct file *filp,
 	else{
 		mdbg_send(mdbg_proc->write_buf , count, MDBG_WCN_WRITE);
 	}
-	printk(KERN_INFO "mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
 
 	return count;
 }
