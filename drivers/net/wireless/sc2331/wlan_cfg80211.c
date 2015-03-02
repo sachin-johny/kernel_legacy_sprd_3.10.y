@@ -2952,6 +2952,7 @@ int wlan_vif_free(wlan_vif_t *vif)
 	if (NULL == vif->ndev)
 		return ERROR;
 	printkd("[unregister_netdev][%s][0x%p]\n", __func__, vif->ndev->name);
+	cancel_work_sync(&vif->cfg80211.register_frame.work);
 	cancel_work_sync(&vif->deauth_info.work);
 	unregister_netdev(vif->ndev);
 	printkd("[free_netdev][%s][0x%p]\n", __func__, vif->ndev->name);

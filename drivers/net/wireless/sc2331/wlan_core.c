@@ -530,7 +530,6 @@ static int wlan_core_thread(void *data)
 	sleep_flag = timeout = 0;
 	atomic_set(&(thread->retry), 0);
 	rx_fifo = &(g_wlan.rxfifo);
-	sema_init(&g_wlan.wlan_core.sem, 0);
 	printke("%s enter new\n", __func__);
 	up(&(g_wlan.sync.sem));
 	core_down();
@@ -657,7 +656,6 @@ static int wlan_trans_thread(void *data)
 	wlan_thread_t *thread;
 
 	thread = &(g_wlan.wlan_trans);
-	sema_init(&g_wlan.wlan_trans.sem, 0);
 	sdiodev_readchn_init(8, (void *)wlan_rx_chn_isr, 1);
 	sdiodev_readchn_init(9, (void *)wlan_rx_chn_isr, 1);
 	rx_chn = &(g_wlan.hw.sdio_rx_chn);
@@ -1162,20 +1160,9 @@ int wlan_module_init(struct device *dev)
 	if (OK != ret)
 		return -EPERM;
 	wlan_cmd_init();
-	g_wlan.wlan_core.task =
-	    kthread_create(wlan_core_thread, (void *)(dev), "wlan_core");
-	if (NULL != g_wlan.wlan_core.task) {
-		wake_up_process(g_wlan.wlan_core.task);
-	}
-	down(&(g_wlan.sync.sem));
 
-	g_wlan.wlan_trans.task =
-	    kthread_create(wlan_trans_thread, (void *)(dev), "wlan_trans");
-	if (NULL != g_wlan.wlan_trans.task) {
-		wake_up_process(g_wlan.wlan_trans.task);
-	}
-	down(&(g_wlan.sync.sem));
-
+	sema_init(&g_wlan.wlan_trans.sem, 0);
+	sema_init(&g_wlan.wlan_core.sem, 0);
 	ret = wlan_wiphy_new(&(g_wlan));
 	if (OK != ret)
 		return -EPERM;
@@ -1190,6 +1177,19 @@ int wlan_module_init(struct device *dev)
 			  (void *)(&wlan_ops));
 	if (OK != ret)
 		return -EPERM;
+
+	g_wlan.wlan_trans.task =
+	    kthread_create(wlan_trans_thread, (void *)(dev), "wlan_trans");
+	if (NULL != g_wlan.wlan_trans.task)
+		wake_up_process(g_wlan.wlan_trans.task);
+	down(&(g_wlan.sync.sem));
+
+	g_wlan.wlan_core.task =
+	    kthread_create(wlan_core_thread, (void *)(dev), "wlan_core");
+	if (NULL != g_wlan.wlan_core.task)
+		wake_up_process(g_wlan.wlan_core.task);
+	down(&(g_wlan.sync.sem));
+
 	wlan_nl_init();
 
 	g_wlan.hw.early_suspend.suspend = wlan_early_suspend;
