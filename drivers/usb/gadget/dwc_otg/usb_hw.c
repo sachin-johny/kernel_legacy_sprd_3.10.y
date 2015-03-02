@@ -43,6 +43,7 @@
 static int    gpio_vbus =0xffffffff ;
 static int    gpio_id=0xffffffff;
 static uint32_t tune_from_uboot = 0x44073e33;
+static struct regulator *usb_regulator = NULL;
 
 #define GPIO_INVALID 0xffffffff
 
@@ -65,7 +66,6 @@ __setup("usb_phy_tune=", usb_phy_tune_get);
 
 static void usb_ldo_switch(int is_on)
 {
-	struct regulator *usb_regulator = NULL;
 
 	if(usb_regulator == NULL){
 		usb_regulator = regulator_get(NULL,USB_LDO_NAME);
@@ -77,7 +77,6 @@ static void usb_ldo_switch(int is_on)
 		}else{
 			regulator_disable(usb_regulator);
 		}
-		regulator_put(usb_regulator);
 	}
 }
 #if defined(CONFIG_ARCH_SC8825)
