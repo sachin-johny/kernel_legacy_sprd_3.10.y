@@ -121,7 +121,7 @@ bool get_bt_state(void){
     bool state = 0;
     mutex_lock(&bluetooth_ops_lock);
     state = bt_state;
-    printk(KERN_INFO "%s get bt state: %d\n", __func__, state);
+   // printk(KERN_INFO "%s get bt state: %d\n", __func__, state);
     mutex_unlock(&bluetooth_ops_lock);
     return state;
 }
