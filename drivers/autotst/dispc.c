@@ -22,11 +22,10 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 
-//#include <mach/pinmap.h>
-
 #include "dispc_reg.h"
 #include "lcd_dummy.h"
 #include "dispc.h"
+#include "pinmap_gpio.h"
 
 #define pr_debug printk
 
@@ -50,15 +49,9 @@
 
 #define DISPC_EMC_EN_PARENT ("clk_aon_apb")
 
-#if (defined(CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L))
-#define DISPC_PLL_CLK				("clk_dispc0")
-#define DISPC_DBI_CLK				("clk_dispc0_dbi")
-#define DISPC_DPI_CLK				("clk_dispc0_dpi")
-#else
 #define DISPC_PLL_CLK				("clk_disc0")
 #define DISPC_DBI_CLK				("clk_disc0_dbi")
 #define DISPC_DPI_CLK				("clk_disc0_dpi")
-#endif
 #define DISPC_EMC_CLK				("clk_disp_emc")
 
 #define PATTEN_GRID_WIDTH (40)
@@ -92,13 +85,12 @@ static struct panel_spec *autotst_panel = NULL;
 static uint32_t g_patten_table[PATTEN_COLOR_COUNT] =
 	{0xffff0000, 0xff00ff00, 0xff0000ff, 0xffffff00, 0xff00ffff, 0xffff00ff, 0xffffffff};
 
-#if 0 /*designed for RGB, not used for SHARKL*/
 int autotst_dispc_pin_ctrl(int type)
 {
 	static int pin_table[29];
 	static int is_first_time = true;
 	int i;
-	u32 regs = REG_PIN_LCD_CSN1;
+	u32 regs = REG_PIN_LCM_RSTN;
 	u32 func;
 
 	if (is_first_time) {
@@ -116,7 +108,7 @@ int autotst_dispc_pin_ctrl(int type)
 		return 0;
 	}
 
-	regs = REG_PIN_LCD_CSN1;
+	regs = REG_PIN_LCM_RSTN;
 	for (i = 0; i < 29; ++i) {
 		if (type == DISPC_PIN_FUNC0)
 			pinmap_set(regs, pin_table[i]);
@@ -127,8 +119,40 @@ int autotst_dispc_pin_ctrl(int type)
 
 	return 0;
 }
-#endif
 
+int autotst_pin_ctrl(int type, int gpio_num, int gpio_pull)
+{
+	static int pin_table;
+	int i;
+	u32 regs = REG_PIN_U0TXD;
+	u32 func;
+	u32 mask;
+	mask = BIT_LDO_SDIO_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
+        BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD;
+
+	ANA_REG_BIC(ANA_REG_GLB_LDO_PD_CTRL, mask);
+
+	for (i = 0; i < ARRAY_SIZE(pinmap_gpio); ++i) {
+		if( gpio_num == pinmap_gpio[i].num){
+			regs = pinmap_gpio[i].reg;
+			pin_table = pinmap_get(regs);
+			break;
+		}
+	}
+
+	if (type == DISPC_PIN_FUNC3){
+		func = BITS_PIN_DS(1) | BITS_PIN_AF(DISPC_PIN_FUNC3) | BIT_PIN_SLP_AP | gpio_pull;
+	}else {
+		pr_err("The function hasn't been implemented yet\n");
+	}
+
+	if (type == DISPC_PIN_FUNC0){
+		pinmap_set(regs, pin_table);
+	}else{
+		pinmap_set(regs, func);
+	}
+	return 0;
+}
 /**********************************************/
 /*                      MCU PANEL CONFIG                                */
 /**********************************************/
@@ -876,7 +900,7 @@ static int32_t dispc_clk_init(void)
 
 	autotst_dispc_ctx.clk_dispc_emc = clk_get(NULL, DISPC_EMC_CLK);
 	if (IS_ERR(autotst_dispc_ctx.clk_dispc_emc)) {
-		printk(KERN_WARNING "autotst_dispc: get clk_dispc_emc fail!\n");
+		printk(KERN_WARNING "autotst_dispc: get clk_dispc_dpi fail!\n");
 		return -1;
 	} else {
 		pr_debug(KERN_INFO "autotst_dispc: get clk_dispc_emc ok!\n");
@@ -917,7 +941,7 @@ static int32_t dispc_clk_init(void)
 	ret = clk_enable(autotst_dispc_ctx.clk_dispc_emc);
 	if(ret){
 		printk("autotst_dispc:enable clk_dispc_emc error!!!\n");
-		return -1;
+		ret=-1;
 	}
 
 	ret = dispc_clk_enable(&autotst_dispc_ctx);
@@ -1093,17 +1117,9 @@ int32_t autotst_dispc_init(int display_type)
 int32_t autotst_dispc_refresh (void)
 {
 	int ret = 0;
-
-	uint32_t size = 0;
+	uint32_t size = (autotst_panel->width& 0xffff) | ((autotst_panel->height) << 16);
 
 	printk(KERN_INFO "autotst_dispc:[%s]\n",__FUNCTION__);
-
-	if(NULL == autotst_panel){
-		printk("autotst_dispc: [%s] error! (no panel)!\n", __FUNCTION__);
-		return 0;
-	}
-
-	size = (autotst_panel->width& 0xffff) | ((autotst_panel->height) << 16);
 
         //autotst_dsi_dump();
 

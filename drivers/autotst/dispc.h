@@ -10,7 +10,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #ifndef _DISPC_H_
 #define _DISPC_H_
 
@@ -36,6 +35,7 @@ int32_t autotst_dispc_init(int display_type);
 int32_t autotst_dispc_uninit(int display_type);
 int32_t autotst_dispc_refresh (void);
 
-//int autotst_dispc_pin_ctrl(int type);
+int autotst_dispc_pin_ctrl(int type);
+int autotst_pin_ctrl(int type, int gpio_num, int gpio_pull);
 
 #endif
