@@ -119,6 +119,7 @@ typedef struct SEth {
 
 #ifdef SETH_NAPI
 	atomic_t rx_busy;
+	struct timer_list rx_timer;
 
 	atomic_t txpending;	/* seth tx resend count*/
 	struct timer_list tx_timer;
@@ -134,6 +135,7 @@ static int seth_debugfs_mknod(void *root, void * data);
 #endif
 
 #ifdef SETH_NAPI
+static void seth_rx_timer_handler(unsigned long data);
 
 static inline void seth_dt_stats_init(struct seth_dtrans_stats * stats)
 {
@@ -375,6 +377,16 @@ static int seth_rx_poll_handler(struct napi_struct * napi, int budget)
 	if (skb_cnt >= 0 && budget > skb_cnt) {
 		napi_complete(napi);
 		atomic_dec(&seth->rx_busy);
+
+		/* to guarantee that any arrived sblock(s) can be processed even if there are no events issued by CP */
+		if (sblock_get_arrived_count(pdata->dst, pdata->channel)) {
+			/* start a timer with 2 jiffies expries (20 ms) */
+			seth->rx_timer.function = seth_rx_timer_handler;
+			seth->rx_timer.expires = jiffies + HZ/50;
+			seth->rx_timer.data = (unsigned long)seth;
+			mod_timer(&seth->rx_timer, seth->rx_timer.expires);
+			SETH_INFO("start rx_timer, jiffies %lu.\n", jiffies);
+		}
 	}
 
 	return skb_cnt;
@@ -453,15 +465,19 @@ static void seth_rx_handler (void * data)
 		return;
 	}
 
-
 	/* if the poll handler has been done, trigger to schedule*/
-	if (!atomic_read(&seth->rx_busy)) {
-		atomic_inc(&seth->rx_busy);
+	if (!atomic_cmpxchg(&seth->rx_busy, 0, 1)) {
 		/* update rx stats*/
 		napi_schedule(&seth->napi);
 		/* trigger a NET_RX_SOFTIRQ softirq directly */
 		raise_softirq(NET_RX_SOFTIRQ);
 	}
+}
+
+static void seth_rx_timer_handler(unsigned long data)
+{
+	SETH_INFO("rx_timer expried, jiffies %lu.\n", jiffies);
+	seth_rx_handler((void *)data);
 }
 
 #else
@@ -584,6 +600,7 @@ seth_handler (int event, void* data)
 			break;
 		case SBLOCK_NOTIFY_RECV:
 			SETH_DEBUG ("SBLOCK_NOTIFY_RECV is received\n");
+			del_timer(&seth->rx_timer);
 			seth_rx_handler(seth);
 			break;
 		case SBLOCK_NOTIFY_STATUS:
@@ -729,7 +746,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 	} else if (atomic_read(&seth->txpending) == 1){
 		/* start a timer with 1 jiffy expries (10 ms) */
 		seth->tx_timer.function = seth_tx_flush;
-		seth->tx_timer.expires = jiffies + 1;
+		seth->tx_timer.expires = jiffies + HZ/100;
 		seth->tx_timer.data = (unsigned long)dev;
 		mod_timer(&seth->tx_timer, seth->tx_timer.expires);
 		SETH_DEBUG ("seth_start_xmit:Timer\n");
@@ -934,6 +951,7 @@ static int seth_probe(struct platform_device *pdev)
 	atomic_set(&seth->rx_busy, 0);
 	atomic_set(&seth->txpending, 0);
 
+	init_timer(&seth->rx_timer);
 	init_timer(&seth->tx_timer);
 	seth_dt_stats_init(&seth->dt_stats);
 #endif
@@ -1006,6 +1024,8 @@ static int seth_remove (struct platform_device *pdev)
 
 #ifdef SETH_NAPI
 	netif_napi_del(&seth->napi);
+
+	del_timer_sync(&seth->rx_timer);
 	del_timer_sync(&seth->tx_timer);
 #endif
 

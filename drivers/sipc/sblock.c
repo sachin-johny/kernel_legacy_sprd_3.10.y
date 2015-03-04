@@ -703,6 +703,30 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
 	return rval;
 }
 
+int sblock_get_arrived_count(uint8_t dst, uint8_t channel)
+{
+	struct sblock_mgr *sblock = (struct sblock_mgr *)sblocks[dst][channel];
+	struct sblock_ring *ring = NULL;
+	volatile struct sblock_ring_header *ringhd = NULL;
+	int blk_count = 0;
+	unsigned long flags;
+
+	if (!sblock || sblock->state != SBLOCK_STATE_READY) {
+		printk(KERN_ERR "sblock-%d-%d not ready!\n", dst, channel);
+		return -ENODEV;
+	}
+
+	ring = sblock->ring;
+	ringhd = (volatile struct sblock_ring_header *)(&ring->header->ring);
+
+	spin_lock_irqsave(&ring->r_rxlock, flags);
+	blk_count = (int)(ringhd->rxblk_wrptr - ringhd->rxblk_rdptr);
+	spin_unlock_irqrestore(&ring->r_rxlock, flags);
+
+	return blk_count;
+
+}
+
 int sblock_get_free_count(uint8_t dst, uint8_t channel)
 {
 	struct sblock_mgr *sblock = (struct sblock_mgr *)sblocks[dst][channel];
@@ -852,6 +876,7 @@ EXPORT_SYMBOL(sblock_send);
 EXPORT_SYMBOL(sblock_send_prepare);
 EXPORT_SYMBOL(sblock_send_finish);
 EXPORT_SYMBOL(sblock_receive);
+EXPORT_SYMBOL(sblock_get_arrived_count);
 EXPORT_SYMBOL(sblock_get_free_count);
 EXPORT_SYMBOL(sblock_release);
 

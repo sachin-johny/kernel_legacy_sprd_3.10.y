@@ -387,13 +387,24 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
  */
 int sblock_release(uint8_t dst, uint8_t channel, struct sblock *blk);
 
-
 /**
- * sblock_get_free_count  -- the count of free(empty) block
+ * sblock_get_arrived_count  -- get the count of sblock(s) arrived at AP (sblock_send on CP)
+ *                              but not received (sblock_receive on AP).
  *
  * @dst: dest processor ID
  * @channel: channel ID
- * @return: >=0  the count of free(empty) block
+ * @return: >=0  the count of blocks
+ */
+int sblock_get_arrived_count(uint8_t dst, uint8_t channel);
+
+
+
+/**
+ * sblock_get_free_count  -- get the count of available sblock(s) resident in sblock pool on AP.
+ *
+ * @dst: dest processor ID
+ * @channel: channel ID
+ * @return: >=0  the count of blocks
  */
 int sblock_get_free_count(uint8_t dst, uint8_t channel);
 
