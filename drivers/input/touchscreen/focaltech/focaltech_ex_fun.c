@@ -40,7 +40,7 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 			  u32 dw_lenth);
 
 static unsigned char FT6306_FW[] = {
-#include "FT6x06_4Column_Ver0x11_20141206_app.h"
+#include "FT6x06_4Column_Ver0x12_20150227_app.h"
 };
 
 static unsigned char FT_FW_NULL[] = {
