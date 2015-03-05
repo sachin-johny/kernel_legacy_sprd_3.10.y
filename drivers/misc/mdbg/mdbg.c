@@ -264,6 +264,7 @@ static ssize_t mdbg_proc_read(struct file *filp,
 static ssize_t mdbg_proc_write(struct file *filp,
 		const char __user *buf, size_t count, loff_t *ppos)
 {
+	int cnt = 0;
 	if(count > MDBG_WRITE_SIZE){
 		MDBG_ERR( "mdbg_proc_write count > MDBG_WRITE_SIZE\n");
 		return -ENOMEM;
@@ -288,7 +289,12 @@ static ssize_t mdbg_proc_write(struct file *filp,
 
 	if(strncmp(mdbg_proc->write_buf,"at+loopcheck",12) == 0){
 		printk(KERN_INFO "mdbg start wake marlin\n");
-		set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x1);
+		while((set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x3) < 0) && (cnt <= 3))
+		{	
+			msleep(300);
+			cnt++;		
+		}
+		cnt = 0;
 	}
 	else{
 		mdbg_send(mdbg_proc->write_buf , count, MDBG_WCN_WRITE);

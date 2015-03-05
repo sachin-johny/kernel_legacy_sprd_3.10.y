@@ -96,12 +96,17 @@ EXPORT_SYMBOL_GPL(mdbg_channel_init);
 /*******************************************************/
 LOCAL MDBG_SIZE_T mdbg_sdio_write(char* buff, MDBG_SIZE_T len,uint32 chn)
 {
+	int cnt = 0;
 	MDBG_LOG("buff=%p,len=%d,[%s]",buff,len,buff);
 	if(1 != get_sdiohal_status()){
 		return 0;
 	}
-
-	set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x1);
+	while((set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x3) < 0) && (cnt <= 3))
+	{	
+		msleep(300);
+		cnt++;		
+	}
+		
 	sdio_dev_write(chn, buff, len);
 	return len;
 }

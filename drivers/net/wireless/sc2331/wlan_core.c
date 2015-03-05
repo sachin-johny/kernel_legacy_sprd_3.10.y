@@ -698,12 +698,34 @@ RX:
 		}
 		wlan_wakeup();
 		ret = set_marlin_wakeup(0, 1);
+
+	#if 0
 		if (0 != ret) {
 			printke("rx call set_marlin_wakeup error:%d\n", ret);
 			if (ret != -ETIMEDOUT)
 				msleep(200);
 			goto TX;
 		}
+	#endif
+
+		if (0 != ret) {
+			if( (ITM_NONE_MODE != g_wlan.netif[0].mode) || (ITM_NONE_MODE != g_wlan.netif[1].mode) )	
+			{
+				if(-2 != ret)
+				{
+					printke("rx call set_marlin_wakeup return:%d:%d\n", ret);
+					msleep(200);
+					goto TX;
+				}
+			}
+			else
+			{
+				printke("rx retry open wlan\n", ret);
+				msleep(200);
+				goto TX;
+			}
+		}
+		
 		ret = sdio_chn_status(rx_chn->bit_map, &status);
 		if (0 != ret) {
 			printke("rx call sdio_chn_status error:%d\n", ret);
@@ -763,6 +785,7 @@ TX:
 				continue;
 			wlan_wakeup();
 			ret = set_marlin_wakeup(0, 1);
+	#if 0
 			if (0 != ret) {
 				printke("tx call set_marlin_wakeup error:%d\n",
 					ret);
@@ -771,6 +794,26 @@ TX:
 				retry++;
 				continue;
 			}
+	#endif
+
+			if (0 != ret) {
+				if( (ITM_NONE_MODE != g_wlan.netif[0].mode) || (ITM_NONE_MODE != g_wlan.netif[1].mode) )	
+				{
+					// -2: means bt ack high
+					if(-2 != ret){
+						printke("tx call set_marlin_wakeup return:%d\n", ret);
+						msleep(200);
+						retry++;
+						continue;
+					}
+				}else{
+					printke("tx retry open wlan\n");
+					msleep(300);
+					retry++;
+					continue;
+				}
+			}
+	
 			ret = sdio_chn_status(tx_chn->bit_map, &status);
 			if (ret) {
 				printke("tx call sdio_chn_status error:%d\n",
