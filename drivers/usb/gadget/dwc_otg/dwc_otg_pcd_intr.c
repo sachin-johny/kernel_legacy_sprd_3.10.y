@@ -728,6 +728,7 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 	dwc_otg_dev_if_t *dev_if = core_if->dev_if;
 	deptsiz0_data_t doeptsize0 = {.d32 = 0 };
 	dwc_otg_dev_dma_desc_t *dma_desc;
+	dwc_ep_t *ep = &pcd->ep0.dwc_ep;
 	depctl_data_t doepctl = {.d32 = 0 };
 
 #ifdef VERBOSE
@@ -759,7 +760,7 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 			    (dev_if->setup_desc_index + 1) & 1;
 			dma_desc =
 			    dev_if->setup_desc_addr[dev_if->setup_desc_index];
-
+			ep->desc_cnt = 0;
 			/** DMA Descriptor Setup */
 			dma_desc->status.b.bs = BS_HOST_BUSY;
 			if (core_if->snpsid >= OTG_CORE_REV_3_00a) {
@@ -768,11 +769,14 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 			}
 			dma_desc->status.b.l = 1;
 			dma_desc->status.b.ioc = 1;
-			dma_desc->status.b.bytes = pcd->ep0.dwc_ep.maxpacket;
+			dma_desc->status.b.bytes = ep->maxpacket;
 			dma_desc->buf = pcd->setup_pkt_dma_handle;
 			dma_desc->status.b.sts = 0;
 			dma_desc->status.b.bs = BS_HOST_READY;
-
+			ep->desc_cnt = 1;
+			ep->desc_addr = dma_desc;
+			ep->dma_desc_addr = dev_if->dma_setup_desc_addr
+					[dev_if->setup_desc_index];
 			/** DOEPDMA0 Register write */
 			DWC_WRITE_REG32(&dev_if->out_ep_regs[0]->doepdma,
 					dev_if->dma_setup_desc_addr
@@ -793,7 +797,7 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 	/** DOEPCTL0 Register write */
 	doepctl.b.epena = 1;
 	//doepctl.b.cnak = 1;
-	doepctl.b.snak = 1;
+	//doepctl.b.snak = 1;
 	dwc_write_reg32(&dev_if->out_ep_regs[0]->doepctl, doepctl.d32);
 
 #ifdef VERBOSE
@@ -3133,15 +3137,16 @@ static void dwc_otg_pcd_handle_noniso_bna(dwc_otg_pcd_ep_t * ep)
                 
 	}
 
-	if (!dwc_ep->desc_cnt) {
-		dma_desc = core_if->dev_if->setup_desc_addr[core_if->dev_if->setup_desc_index];
-		DWC_WARN("Ep%d %s DescCnt[%d]=%d depctl=0x%x  depdma(0x%x)=0x%x (0x%x).sta=0x%x\n",
-			 dwc_ep->num, (dwc_ep->is_in ? "IN" : "OUT"),core_if->dev_if->setup_desc_index
-			, dwc_ep->desc_cnt, DWC_READ_REG32(addr),dmaaddr,
-			DWC_READ_REG32(dmaaddr),dma_desc,dma_desc->status.d32);
+	DWC_WARN("Ep%d %s, DescCnt = %d, depctl = 0x%x, \
+		depdma = 0x%x, (0x%p).sta = 0x%x\n",
+		 dwc_ep->num, dwc_ep->is_in ? "IN" : "OUT",
+		 dwc_ep->desc_cnt, DWC_READ_REG32(addr),
+		 DWC_READ_REG32(dmaaddr), dwc_ep->desc_addr,
+		 dwc_ep->desc_addr->status.d32);
+	if (dwc_ep->num == 0) {
 		depmsk.d32 = DWC_READ_REG32(dmskaddr);
 		depmsk.b.bna = 0;
-		DWC_WRITE_REG32(dmskaddr,depmsk.d32);
+		DWC_WRITE_REG32(dmskaddr, depmsk.d32);
 	}
 
 	if (core_if->core_params->cont_on_bna && !dwc_ep->is_in
@@ -4139,14 +4144,14 @@ do { \
 				CLEAR_OUT_EP_INTR(core_if, epnum, outtknepdis);
 			}
 
-			/* NAK Interrutp */
+			/* NAK Interrupt */
 			if (doepint.b.nak) {
 				DWC_DEBUGPL(DBG_ANY, "EP%d OUT NAK\n", epnum);
 				handle_out_ep_nak_intr(pcd, epnum);
 
 				CLEAR_OUT_EP_INTR(core_if, epnum, nak);
 			}
-			/* NYET Interrutp */
+			/* NYET Interrupt */
 			if (doepint.b.nyet) {
 				DWC_DEBUGPL(DBG_ANY, "EP%d OUT NYET\n", epnum);
 				handle_out_ep_nyet_intr(pcd, epnum);

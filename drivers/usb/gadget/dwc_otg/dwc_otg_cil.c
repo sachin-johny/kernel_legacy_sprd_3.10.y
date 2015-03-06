@@ -1141,7 +1141,7 @@ static void init_devspd(dwc_otg_core_if_t * core_if)
 		val = 0x0;
 	}
 
-	if(in_calibration() || in_autotest())
+	if (in_calibration() || in_autotest())
 		val = 1;
 	DWC_DEBUGPL(DBG_CIL, "Initializing DCFG.DevSpd to 0x%1x\n", val);
 
@@ -2664,6 +2664,8 @@ void ep_xfer_timeout(void *ptr)
 	if (!gintsts.b.goutnakeff) {
 		dctl.b.sgoutnak = 1;
 	}
+	DWC_WRITE_REG32(&xfer_info->core_if->dev_if->dev_global_regs->dctl,
+			dctl.d32);
 
 }
 
@@ -3217,11 +3219,12 @@ void dwc_otg_ep0_activate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 
 	DWC_WRITE_REG32(&dev_if->in_ep_regs[0]->diepctl, diepctl.d32);
 
-	/* Enable OUT EP for receive */
+	/* Enable OUT EP for receive
 	if (core_if->snpsid <= OTG_CORE_REV_2_94a) {
 		doepctl.b.epena = 1;
 		DWC_WRITE_REG32(&dev_if->out_ep_regs[0]->doepctl, doepctl.d32);
 	}
+	*/
 #ifdef VERBOSE
 	DWC_DEBUGPL(DBG_PCDV, "doepctl0=%0x\n",
 		    DWC_READ_REG32(&dev_if->out_ep_regs[0]->doepctl));
@@ -3942,6 +3945,9 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 				core_if->ep_xfer_info[ep->num].ep = ep;
 				core_if->ep_xfer_info[ep->num].state = 1;
 
+				/* Start a timer for this transfer.
+				DWC_TIMER_SCHEDULE(core_if->ep_xfer_timer[ep->num], 10000);
+				*/
 			}
 		}
 	}
@@ -4141,6 +4147,7 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 				DWC_WRITE_REG32(&(in_regs->diepdma),
 						(uint32_t) ep->dma_addr);
 			} else {
+				ep->desc_cnt = 0;
 				dma_desc = core_if->dev_if->in_desc_addr;
 
 				/** DMA Descriptor Setup */
@@ -4153,7 +4160,9 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 				dma_desc->buf = ep->xfer_len ? ep->dma_addr : 0;
 				dma_desc->status.b.sts = 0;
 				dma_desc->status.b.bs = BS_HOST_READY;
-
+				ep->desc_cnt = 1;
+				ep->desc_addr = dma_desc;
+				ep->dma_desc_addr = core_if->dev_if->dma_in_desc_addr;
 				/** DIEPDMA0 Register write */
 				DWC_WRITE_REG32(&in_regs->diepdma,
 						core_if->dev_if->dma_in_desc_addr);
@@ -4216,6 +4225,7 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 				DWC_WRITE_REG32(&(out_regs->doepdma),
 						(uint32_t) ep->dma_addr);
 			} else {
+				ep->desc_cnt = 0;
 				dma_desc = core_if->dev_if->out_desc_addr;
 
 				/** DMA Descriptor Setup */
@@ -4230,7 +4240,9 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 				dma_desc->buf = ep->dma_addr;
 				dma_desc->status.b.sts = 0;
 				dma_desc->status.b.bs = BS_HOST_READY;
-
+				ep->desc_cnt = 1;
+				ep->desc_addr = dma_desc;
+				ep->dma_desc_addr = core_if->dev_if->dma_out_desc_addr;
 				/** DOEPDMA0 Register write */
 				DWC_WRITE_REG32(&out_regs->doepdma,
 						core_if->dev_if->dma_out_desc_addr);
@@ -4298,7 +4310,7 @@ void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			    (ep->total_len - ep->xfer_count) >
 			    ep->maxpacket ? ep->maxpacket : (ep->total_len -
 							     ep->xfer_count);
-
+			ep->desc_cnt = 0;
 			dma_desc = core_if->dev_if->in_desc_addr;
 
 			/** DMA Descriptor Setup */
@@ -4311,7 +4323,9 @@ void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			dma_desc->buf = ep->dma_addr;
 			dma_desc->status.b.sts = 0;
 			dma_desc->status.b.bs = BS_HOST_READY;
-
+			ep->desc_cnt = 1;
+			ep->desc_addr = dma_desc;
+			ep->dma_desc_addr = core_if->dev_if->dma_in_desc_addr;
 			/** DIEPDMA0 Register write */
 			DWC_WRITE_REG32(&in_regs->diepdma,
 					core_if->dev_if->dma_in_desc_addr);
@@ -4376,6 +4390,7 @@ void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			DWC_WRITE_REG32(&out_regs->doeptsiz, deptsiz.d32);
 		} else {
 			dma_desc = core_if->dev_if->out_desc_addr;
+			ep->desc_cnt = 0;
 
 			/** DMA Descriptor Setup */
 			dma_desc->status.b.bs = BS_HOST_BUSY;
@@ -4385,7 +4400,9 @@ void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			dma_desc->buf = ep->dma_addr;
 			dma_desc->status.b.sts = 0;
 			dma_desc->status.b.bs = BS_HOST_READY;
-
+			ep->desc_cnt = 1;
+			ep->desc_addr = dma_desc;
+			ep->dma_desc_addr = core_if->dev_if->dma_out_desc_addr;
 			/** DOEPDMA0 Register write */
 			DWC_WRITE_REG32(&out_regs->doepdma,
 					core_if->dev_if->dma_out_desc_addr);
