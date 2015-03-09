@@ -186,8 +186,6 @@ void _reinit_usb_later(dwc_otg_pcd_t *pcd)
 	DWC_WRITE_REG32(&dev_if->dev_global_regs->dctl, dctl.d32);
 	
 	DWC_PRINTF("call reinit USB controller...\n");
-	setup_timer(&reinit_USB_timer, reinit_USB_timer_fun, \
-			(unsigned long) gadget_wrapper);
 	mod_timer(&reinit_USB_timer, jiffies + 10*HZ);
 }
 #ifdef USB_SETUP_TIMEOUT_RESTART
@@ -1466,6 +1464,8 @@ int pcd_init(
 			setup_transfer_timer_fun,
 			(unsigned long)gadget_wrapper);
 		setup_transfer_timer_start = 0;
+		setup_timer(&reinit_USB_timer, reinit_USB_timer_fun,
+			 (unsigned long) gadget_wrapper);
 	}
 #endif
 	INIT_DELAYED_WORK(&gadget_wrapper->cable2pc, cable2pc_detect_works);

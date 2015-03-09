@@ -210,14 +210,21 @@ void usb_phy_ahb_rst(void)
 
 static void usb_startup(void)
 {
+	uint32_t ahb_reset_mask;
+
+#if defined(CONFIG_ARCH_SCX35L)
+	ahb_reset_mask = BIT(4)|BIT(5)|BIT(6);
+#else
+	ahb_reset_mask = BIT(5)|BIT(6)|BIT(7);
+#endif
 	usb_ldo_switch(1);
 	mdelay(10);
 	usb_enable_module(1);
 	mdelay(2);
 #if defined(CONFIG_ARCH_SCX35)
-	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
+	sci_glb_set(REG_AP_AHB_AHB_RST, ahb_reset_mask);
 	mdelay(5);
-	sci_glb_clr(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
+	sci_glb_clr(REG_AP_AHB_AHB_RST, ahb_reset_mask);
 #else	
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(1)|BIT(2),AHB_CTL3);
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6),AHB_CTL3);

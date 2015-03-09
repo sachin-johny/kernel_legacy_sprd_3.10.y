@@ -294,6 +294,7 @@
 #include <linux/param.h>
 #include <linux/delay.h>
 #include <linux/jiffies.h>
+#include <linux/interrupt.h>
 
 #include "dwc_otg_os_dep.h"
 #include "dwc_os.h"
@@ -302,6 +303,7 @@
 #include "dwc_otg_core_if.h"
 #include "dwc_otg_pcd_if.h"
 #include "dwc_otg_hcd_if.h"
+#include "usb_hw.h"
 //#include <linux/platform_device.h>
 /*
  * MACROs for defining sysfs attribute
@@ -777,7 +779,7 @@ static ssize_t rd_reg_test_show(struct device *_dev,
 	int time;
 	int start_jiffies;
 
-	printk("HZ %d, MSEC_PER_JIFFIE %d, loops_per_jiffy %lu\n",
+	DWC_PRINTF("HZ %d, MSEC_PER_JIFFIE %d, loops_per_jiffy %lu\n",
 	       HZ, MSEC_PER_JIFFIE, loops_per_jiffy);
 	start_jiffies = jiffies;
 	for (i = 0; i < RW_REG_COUNT; i++) {
@@ -806,7 +808,7 @@ static ssize_t wr_reg_test_show(struct device *_dev,
 	int time;
 	int start_jiffies;
 
-	printk("HZ %d, MSEC_PER_JIFFIE %d, loops_per_jiffy %lu\n",
+	DWC_PRINTF("HZ %d, MSEC_PER_JIFFIE %d, loops_per_jiffy %lu\n",
 	       HZ, MSEC_PER_JIFFIE, loops_per_jiffy);
 	reg_val = dwc_otg_get_gnptxfsiz(otg_dev->core_if);
 	start_jiffies = jiffies;
@@ -911,6 +913,114 @@ DEVICE_ATTR(sleep_status, S_IRUGO | S_IWUSR, sleepstatus_show,
 	    sleepstatus_store);
 
 #endif				/* CONFIG_USB_DWC_OTG_LPM_ENABLE */
+#ifndef DWC_DEVICE_ONLY
+static ssize_t hostenable_show(struct device *_dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct platform_device *dev = to_platform_device(_dev);
+	struct sprd_usb_platform_data *pdata = dev->dev.platform_data;
+	dwc_otg_device_t *otg_dev = platform_get_drvdata(dev);
+
+	if (pdata->gpio_otgdet == 0xFFFFFFFF) {
+		DWC_PRINTF("Don't support host mode!!!\n");
+		return sprintf(buf, "Not support");
+	}
+
+	return sprintf(buf, "%s\n",
+	       ((otg_dev->host_disabled&0x01) ? "disabled" : "enabled"));
+}
+
+/**
+ * Store the sleep_status attribure.
+ */
+static ssize_t hostenable_store(struct device *_dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct platform_device *dev = to_platform_device(_dev);
+	dwc_otg_device_t *otg_dev = platform_get_drvdata(dev);
+	struct sprd_usb_platform_data *pdata = dev->dev.platform_data;
+	int otg_cable_irq;
+
+	if (pdata->gpio_otgdet == 0xFFFFFFFF) {
+		DWC_PRINTF("Don't support host mode!!!\n");
+		return count;
+	}
+	otg_cable_irq = usb_alloc_id_irq(pdata->gpio_otgdet);
+
+	if (strncmp(buf, "disable", 7) == 0) {
+		otg_dev->host_disabled |= 1;
+		disable_irq(otg_cable_irq);
+		DWC_PRINTF("gpio_otgdet = %d irq = %d disabled\n",
+		pdata->gpio_otgdet, otg_cable_irq);
+	} else if (strncmp(buf, "enable", 6) == 0) {
+		otg_dev->host_disabled &= ~(0x01);
+		enable_irq(otg_cable_irq);
+		DWC_PRINTF("gpio_otgdet = %d irq = %d enabled\n",
+		pdata->gpio_otgdet, otg_cable_irq);
+	} else {
+		DWC_PRINTF("gpio_otgdet = %d irq = %d case3!!!!!!!!!!!!!!\n",
+			pdata->gpio_otgdet, otg_cable_irq, buf);
+		return 0;
+	}
+
+	return count;
+}
+
+DEVICE_ATTR(host_enable, S_IRUGO | S_IWUSR, hostenable_show,
+	    hostenable_store);
+
+static ssize_t otgstatus_show(struct device *_dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct platform_device *dev = to_platform_device(_dev);
+	dwc_otg_device_t *otg_dev = platform_get_drvdata(dev);
+	struct sprd_usb_platform_data *pdata = dev->dev.platform_data;
+	int otg_status;
+
+	if (pdata->gpio_otgdet == 0xFFFFFFFF) {
+		DWC_PRINTF("Don't support host mode!!!\n");
+		return sprintf(buf, "Not support");
+	}
+	otg_status = usb_get_id_state();
+	return sprintf(buf, "%s\n", (otg_status ? "hign" : "low"));
+}
+
+/**
+ * Store the sleep_status attribure.
+ */
+
+DEVICE_ATTR(otg_status, S_IRUGO, otgstatus_show, NULL);
+
+
+/**
+ * Store the sleep_status attribure.
+ */
+static ssize_t hostvbus_store(struct device *_dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct platform_device *dev = to_platform_device(_dev);
+	dwc_otg_device_t *otg_dev = platform_get_drvdata(dev);
+	struct sprd_usb_platform_data *pdata = dev->dev.platform_data;
+	int otg_cable_irq;
+
+
+	if (strncmp(buf, "off", 3) == 0) {
+		otg_dev->host_disabled &= ~(0x02);
+		charge_pump_set(pdata->gpio_boost, 0);
+		DWC_PRINTF("gpio_boost = %d  off\n", pdata->gpio_boost);
+	} else if (strncmp(buf, "on", 2) == 0) {
+		otg_dev->host_disabled |= 0x02;
+		charge_pump_set(pdata->gpio_boost, 1);
+		DWC_PRINTF("gpio_boost = %d  on\n", pdata->gpio_boost);
+	}
+
+	return count;
+}
+
+DEVICE_ATTR(vbus_control, S_IWUSR, NULL, hostvbus_store);
+#endif
 
 /**@}*/
 
@@ -959,6 +1069,11 @@ void dwc_otg_attr_create(
 	error = device_create_file(&dev->dev, &dev_attr_lpm_response);
 	error = device_create_file(&dev->dev, &dev_attr_sleep_status);
 #endif
+#ifndef DWC_DEVICE_ONLY
+	error = device_create_file(&dev->dev, &dev_attr_host_enable);
+	error = device_create_file(&dev->dev, &dev_attr_otg_status);
+	error = device_create_file(&dev->dev, &dev_attr_vbus_control);
+#endif
 }
 
 /**
@@ -1003,5 +1118,10 @@ void dwc_otg_attr_remove(
 #ifdef CONFIG_USB_DWC_OTG_LPM
 	device_remove_file(&dev->dev, &dev_attr_lpm_response);
 	device_remove_file(&dev->dev, &dev_attr_sleep_status);
+#endif
+#ifndef DWC_DEVICE_ONLY
+	device_remove_file(&dev->dev, &dev_attr_host_enable);
+	device_remove_file(&dev->dev, &dev_attr_otg_status);
+	device_remove_file(&dev->dev, &dev_attr_vbus_control);
 #endif
 }

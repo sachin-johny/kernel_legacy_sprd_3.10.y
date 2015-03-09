@@ -69,6 +69,9 @@ typedef struct dwc_otg_device {
 
 	/**For host charge pump external boost mode. */
 	 struct sprd_usb_platform_data platform_data;
+
+	/**For auto test mode*/
+	int host_disabled;
 } dwc_otg_device_t;
 
 /*We must clear S3C24XX_EINTPEND external interrupt register 
