@@ -1223,7 +1223,7 @@ static DEVICE_ATTR(panic, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(stack, S_IRUGO | S_IWUSR,
 	sci_bm_stack_show, sci_bm_stack_store);
 
-static DEVICE_ATTR(disable, S_IRWXU | S_IRWXG | S_IRWXO,
+static DEVICE_ATTR(disable, S_IRUGO | S_IWUSR,
 	NULL, sci_bm_disable_store);
 
 static struct attribute *bm_attrs[] = {
