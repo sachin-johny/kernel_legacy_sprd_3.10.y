@@ -371,11 +371,12 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		atomic_set(&is_wlan_open, 0); // avoid repeat into this func
 	}
 	
- 	screen_status = get_screen_status();   // for wifi screen download
- 	bt_state = get_bt_state();  
+ 	//screen_status = get_screen_status();   // for wifi screen download
+ 	//bt_state = get_bt_state();  
 
 	spin_lock_irqsave(&sleep_spinlock, flags);
- 	if((0 == sleep_para.gpio_opt_tag) ||((!screen_status) && (1 == user_id) && (!bt_state)) )
+ 	//if((0 == sleep_para.gpio_opt_tag) ||((!screen_status) && (1 == user_id) && (!bt_state)) )
+	if(0 == sleep_para.gpio_opt_tag)
 	{	
 		if(gpio_get_value(GPIO_MARLIN_WAKE))  //bt ack 250ms
 		{
@@ -1524,6 +1525,7 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 	SDIOTRAN_ERR("enable func1 ok!!!");
 	
 	spin_lock_init(&sleep_spinlock);
+	sdio_init_timer();
 	wakeup_slave_pin_init();
 	marlin_wake_intr_init();
 	marlin_sdio_sync_init();
@@ -1544,7 +1546,6 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 #endif
 */
 	//set_bt_pm_func(set_marlin_wakeup,set_marlin_sleep);
-	sdio_init_timer();
 
 	set_apsdiohal_ready();
 	have_card = 1;
