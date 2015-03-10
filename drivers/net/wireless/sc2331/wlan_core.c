@@ -47,10 +47,11 @@ void core_try_down(int retry)
 	atomic_set(&(thread->retry), retry);
 	sem_count = g_wlan.wlan_core.sem.count;
 	do {
+		if(g_wlan.sync.exit)
+			break;
 		down(&(g_wlan.wlan_core.sem));
 	}
-	while (sem_count--)
-		;
+	while (sem_count--);
 	return;
 }
 
@@ -904,6 +905,7 @@ TX_SLEEP:
 	del_timer_sync(&(g_wlan.hw.wakeup_timer));
 	printke("%s exit\n", __func__);
 	up(&(g_wlan.sync.sem));
+	core_up();
 	return OK;
 }
 
