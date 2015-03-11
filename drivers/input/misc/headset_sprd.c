@@ -65,7 +65,7 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
 #define SPRD_STS_POLLING_EN
 #endif
 
-#define PLUG_CONFIRM_COUNT (8)
+#define PLUG_CONFIRM_COUNT (2)
 #define NO_MIC_RETRY_COUNT (1)
 #define ADC_READ_COUNT (5)
 #define ADC_READ_LOOP (2)
