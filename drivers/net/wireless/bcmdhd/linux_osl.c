@@ -233,17 +233,15 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 	ASSERT(osh);
 
 	bzero(osh, sizeof(osl_t));
-
+#ifdef SHARED_OSL_CMN
 	if (osl_cmn == NULL || *osl_cmn == NULL) {
 		if (!(osh->cmn = kmalloc(sizeof(osl_cmn_t), flags))) {
 			kfree(osh);
 			return NULL;
 		}
 		bzero(osh->cmn, sizeof(osl_cmn_t));
-#ifdef SHARED_OSL_CMN
 		if (osl_cmn)
 			*osl_cmn = osh->cmn;
-#endif
 		atomic_set(&osh->cmn->malloced, 0);
 		osh->cmn->dbgmem_list = NULL;
 		spin_lock_init(&(osh->cmn->dbgmem_lock));
@@ -253,6 +251,19 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 	} else {
 		osh->cmn = *osl_cmn;
 	}
+#else
+		if (!(osh->cmn = kmalloc(sizeof(osl_cmn_t), flags))) {
+			kfree(osh);
+			return NULL;
+		}
+		bzero(osh->cmn, sizeof(osl_cmn_t));
+
+		atomic_set(&osh->cmn->malloced, 0);
+		osh->cmn->dbgmem_list = NULL;
+		spin_lock_init(&(osh->cmn->dbgmem_lock));
+
+		spin_lock_init(&(osh->cmn->pktalloc_lock));
+#endif
 	atomic_add(1, &osh->cmn->refcount);
 
 	/* Check that error map has the right number of entries in it */
