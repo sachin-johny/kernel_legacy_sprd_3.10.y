@@ -245,6 +245,7 @@ static const char *sprd_codec_mixer_debug_str[SPRD_CODEC_MIXER_MAX] = {
 #define IS_SPRD_CODEC_PGA_RANG(reg) (((reg) >= SPRD_CODEC_PGA_START) && ((reg) <= SPRD_CODEC_PGA_END))
 #define IS_SPRD_CODEC_MIC_BIAS_RANG(reg) (((reg) >= SPRD_CODEC_MIC_BIAS_START) && ((reg) <= SPRD_CODEC_MIC_BIAS_END))
 #define IS_SPRD_CODEC_SWITCH_RANG(reg) (((reg) >= SPRD_CODEC_SWITCH_START) && ((reg) <= SPRD_CODEC_SWITCH_END))
+#define IS_SPRD_CODEC_ADC_LOOP_RANG(reg) (((reg) >= SPRD_CODEC_ADC_LOOP_START) && ((reg) <= SPRD_CODEC_ADC_LOOP_END))
 
 typedef int (*sprd_codec_mixer_set) (struct snd_soc_codec * codec, int on);
 struct sprd_codec_mixer {
@@ -365,7 +366,23 @@ static const char *switch_name[SPRD_CODEC_SWITCH_MAX] = {
 	"HPLCGL",
 	"HPRCGR",
 };
+enum {
+	SPRD_CODEC_ADC_LOOP_START = SPRD_CODEC_SWITCH_END + 20,
+	SPRD_CODEC_ADC_DAC_ADIE_LOOP = SPRD_CODEC_ADC_LOOP_START,
+	SPRD_CODEC_ADC1_DAC_ADIE_LOOP,
+	SPRD_CODEC_ADC_DAC_DIGITAL_LOOP,
+	SPRD_CODEC_ADC1_DAC_DIGITAL_LOOP,
 
+	SPRD_CODEC_ADC_LOOP_END
+};
+#define GET_ADC_LOOP_ID(x)   ((x)-SPRD_CODEC_ADC_LOOP_START)
+#define SPRD_CODEC_ADC_LOOP_MAX (SPRD_CODEC_ADC_LOOP_END-SPRD_CODEC_ADC_LOOP_START)
+static const char *adc_loop_name[SPRD_CODEC_ADC_LOOP_MAX] = {
+	"ADC->DAC ADIE LOOP",
+	"ADC1->DAC ADIE LOOP",
+	"ADC->DAC DIGITAL LOOP",
+	"ADC1->DAC DIGITAL LOOP",
+};
 
 enum {
 	SPRD_CODEC_HP_PA_VER_1,
@@ -419,6 +436,7 @@ struct sprd_codec_priv {
 	int sprd_linein_set;
 	struct mutex sprd_linein_mute_mutex;
 	struct notifier_block nb;
+	int ad_da_loop_en[SPRD_CODEC_ADC_LOOP_MAX];
 
     int sprd_dacspkl_enable;
     int sprd_dacspkl_set;
@@ -2901,6 +2919,146 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	return mixer_need_set(kcontrol, ucontrol, 1);
 }
 
+static int adie_loop_event(struct snd_soc_dapm_widget *w,
+		     struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	unsigned int id = GET_ADC_LOOP_ID(FUN_REG(w->reg));
+	int ret = 0;
+
+	sp_asoc_pr_info("%s, %s, Event is %s\n",
+			__func__, adc_loop_name[id], get_event_name(event));
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/* enable loop clock */
+		ret = arch_audio_codec_adie_loop_clk_en(1);
+		snd_soc_update_bits(codec, SOC_REG(DIG_CFG0), BIT(AUDIO_ADIE_LOOP_EN), 1 << AUDIO_ADIE_LOOP_EN);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* disable loop clock */
+		ret = arch_audio_codec_adie_loop_clk_en(0);
+		snd_soc_update_bits(codec, SOC_REG(DIG_CFG0), BIT(AUDIO_ADIE_LOOP_EN), 0 << AUDIO_ADIE_LOOP_EN);
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
+static int digital_loop_event(struct snd_soc_dapm_widget *w,
+		     struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	unsigned int id = GET_ADC_LOOP_ID(FUN_REG(w->reg));
+	int ret = 0;
+
+	sp_asoc_pr_info("%s, %s, Event is %s\n",
+			__func__, adc_loop_name[id], get_event_name(event));
+
+	if (SPRD_CODEC_ADC_DAC_DIGITAL_LOOP == FUN_REG(w->reg))
+		sprd_codec_set_ad_sample_rate(codec, 48000, 0x0F, 0);
+	else if (SPRD_CODEC_ADC1_DAC_DIGITAL_LOOP == FUN_REG(w->reg))
+		sprd_codec_set_ad_sample_rate(codec, 48000, 0xF0, 4);
+	else {
+		sp_asoc_pr_info("%s, wrong id is %d\n", __func__, id);
+		return -EINVAL;
+	}
+	sprd_codec_set_sample_rate(codec, 48000, 0x0F, 0);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		snd_soc_update_bits(codec, SOC_REG(AUD_LOOP_CTL), BIT(LOOP_ADC_PATH_SEL),
+			((id-2) << LOOP_ADC_PATH_SEL));
+		snd_soc_update_bits(codec, SOC_REG(AUD_LOOP_CTL), BIT(AUD_LOOP_TEST), 1 << AUD_LOOP_TEST);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, SOC_REG(AUD_LOOP_CTL), BIT(AUD_LOOP_TEST), 0 << AUD_LOOP_TEST);
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
+static int sprd_codec_adie_loop_put(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = wlist->widgets[0]->codec;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	unsigned int id = GET_ADC_LOOP_ID(FUN_REG(mc->reg));
+	int ret = 0;
+
+	ret = !!(ucontrol->value.integer.value[0]);
+	if (ret == sprd_codec->ad_da_loop_en[id]) {
+		return ret;
+	}
+	sp_asoc_pr_info("%s, %s, set %d \n",
+			__func__, adc_loop_name[id], (int)ucontrol->value.integer.value[0]);
+	/*notice the sequence */
+	snd_soc_dapm_put_volsw(kcontrol, ucontrol);
+	sprd_codec->ad_da_loop_en[id] = ret;
+	return ret;
+}
+
+static int sprd_codec_adie_loop_get(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = wlist->widgets[0]->codec;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	unsigned int id = GET_ADC_LOOP_ID(FUN_REG(mc->reg));
+
+	ucontrol->value.integer.value[0] = !!sprd_codec->ad_da_loop_en[id];
+	return 0;
+}
+
+static int sprd_codec_digital_loop_put(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = wlist->widgets[0]->codec;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	unsigned int id = GET_ADC_LOOP_ID(FUN_REG(mc->reg));
+	int ret = 0;
+
+	ret = !!(ucontrol->value.integer.value[0]);
+	if (ret == sprd_codec->ad_da_loop_en[id]) {
+		return ret;
+	}
+	sp_asoc_pr_info("%s, %s, set %d \n",
+			__func__, adc_loop_name[id], (int)ucontrol->value.integer.value[0]);
+
+	/*notice the sequence */
+	snd_soc_dapm_put_volsw(kcontrol, ucontrol);
+	sprd_codec->ad_da_loop_en[id] = ret;
+	return ret;
+}
+
+static int sprd_codec_digital_loop_get(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = wlist->widgets[0]->codec;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	unsigned int id = GET_ADC_LOOP_ID(FUN_REG(mc->reg));
+
+	ucontrol->value.integer.value[0] = !!sprd_codec->ad_da_loop_en[id];
+	return 0;
+}
 #define SPRD_CODEC_MIXER(xname, xreg)\
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set)
 
@@ -2985,6 +3143,16 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 			       ID_FUN(SPRD_CODEC_SPK_ADCR, SPRD_CODEC_RIGHT)),
 };
 
+static const struct snd_kcontrol_new sprd_codec_loop_controls[] = {
+	SOC_SINGLE_EXT("switch", FUN_REG(SPRD_CODEC_ADC_DAC_ADIE_LOOP), 0, 1, 0,
+			   sprd_codec_adie_loop_get, sprd_codec_adie_loop_put),
+	SOC_SINGLE_EXT("switch", FUN_REG(SPRD_CODEC_ADC1_DAC_ADIE_LOOP), 0, 1, 0,
+			   sprd_codec_adie_loop_get, sprd_codec_adie_loop_put),
+	SOC_SINGLE_EXT("switch", FUN_REG(SPRD_CODEC_ADC_DAC_DIGITAL_LOOP), 0, 1, 0,
+				sprd_codec_digital_loop_get, sprd_codec_digital_loop_put),
+	SOC_SINGLE_EXT("switch", FUN_REG(SPRD_CODEC_ADC1_DAC_DIGITAL_LOOP), 0, 1, 0,
+				sprd_codec_digital_loop_get, sprd_codec_digital_loop_put),
+};
 /*ANA LOOP SWITCH*/
 #define SPRD_CODEC_LOOP_SWITCH(xname, xreg)\
 	SND_SOC_DAPM_PGA_S(xname, SPRD_CODEC_ANA_MIXER_ORDER, FUN_REG(xreg), 0, 0, ana_loop_event,\
@@ -3253,6 +3421,28 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	           0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SWITCH("ADC-DAC Adie Loop", FUN_REG(SPRD_CODEC_ADC_DAC_ADIE_LOOP), 0, 0, &sprd_codec_loop_controls[0]),
+	SND_SOC_DAPM_SWITCH("ADC1-DAC Adie Loop", FUN_REG(SPRD_CODEC_ADC1_DAC_ADIE_LOOP), 0, 0, &sprd_codec_loop_controls[1]),
+	SND_SOC_DAPM_SWITCH("ADC-DAC Digital Loop", FUN_REG(SPRD_CODEC_ADC_DAC_DIGITAL_LOOP), 0, 0, &sprd_codec_loop_controls[2]),
+	SND_SOC_DAPM_SWITCH("ADC1-DAC Digital Loop", FUN_REG(SPRD_CODEC_ADC1_DAC_DIGITAL_LOOP), 0, 0, &sprd_codec_loop_controls[3]),
+
+	SND_SOC_DAPM_PGA_S("ADC-DAC Adie Loop post", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_ADC_DAC_ADIE_LOOP),
+				0, 0,
+				adie_loop_event,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_S("ADC1-DAC Adie Loop post", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_ADC1_DAC_ADIE_LOOP),
+				0, 0,
+				adie_loop_event,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_S("ADC-DAC Digital Loop post", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_ADC_DAC_DIGITAL_LOOP),
+				0, 0,
+				digital_loop_event,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_S("ADC1-DAC Digital Loop post", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_ADC1_DAC_DIGITAL_LOOP),
+				0, 0,
+				digital_loop_event,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_INPUT("DMIC"),
 	SND_SOC_DAPM_INPUT("DMIC1"),
 	SND_SOC_DAPM_OUTPUT("HEAD_P_L"),
@@ -3439,6 +3629,19 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"Mic Bias", NULL, "Analog Power"},
 	{"AuxMic Bias", NULL, "Analog Power"},
 	{"HeadMic Bias", NULL, "Analog Power"},
+	{"ADC-DAC Adie Loop", "switch", "ADC"},
+	{"ADC1-DAC Adie Loop", "switch", "ADC1"},
+	{"ADC-DAC Adie Loop post", NULL, "ADC-DAC Adie Loop"},
+	{"ADC1-DAC Adie Loop post", NULL, "ADC1-DAC Adie Loop"},
+	{"DAC", NULL, "ADC-DAC Adie Loop post"},
+	{"DAC", NULL, "ADC1-DAC Adie Loop post"},
+
+	{"ADC-DAC Digital Loop", "switch", "ADC"},
+	{"ADC1-DAC Digital Loop", "switch", "ADC1"},
+	{"ADC-DAC Digital Loop post", NULL, "ADC-DAC Digital Loop"},
+	{"ADC1-DAC Digital Loop post", NULL, "ADC1-DAC Digital Loop"},
+	{"DAC", NULL, "ADC-DAC Digital Loop post"},
+	{"DAC", NULL, "ADC1-DAC Digital Loop post"},
 };
 
 static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,
@@ -3991,6 +4194,11 @@ static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 	} else if (IS_SPRD_CODEC_PGA_RANG(FUN_REG(reg))) {
 	} else if (IS_SPRD_CODEC_MIC_BIAS_RANG(FUN_REG(reg))) {
 	} else if (IS_SPRD_CODEC_SWITCH_RANG(FUN_REG(reg))) {
+	} else if (IS_SPRD_CODEC_ADC_LOOP_RANG(FUN_REG(reg))) {
+		struct sprd_codec_priv *sprd_codec =
+			snd_soc_codec_get_drvdata(codec);
+		int id = GET_ADC_LOOP_ID(FUN_REG(reg));
+		return sprd_codec->ad_da_loop_en[id];
 	} else
 		sp_asoc_pr_dbg("read the register is not codec's reg = 0x%x\n",
 			       reg);

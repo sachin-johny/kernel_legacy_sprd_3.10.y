@@ -69,6 +69,10 @@
 #define ADC1_SRC_N 			(4)
 #define ADC1_SRC_N_MASK      (0xf0)
 
+#define AUD_LOOP_TEST 		(0)
+#define LOOP_ADC_PATH_SEL	(9)
+#define LOOP_PATH_SEL		(1)
+#define LOOP_PATH_SEL_MASK	(0x3)
 /* AUD_AUD_STS0 */
 #define DAC_MUTE_U_MASK		(5)
 #define DAC_MUTE_D_MASK		(4)
@@ -430,6 +434,7 @@
 #define AUDIFA_ADCL_EN		(10)
 #define AUDIFA_DACR_EN		(11)
 #define AUDIFA_ADCR_EN		(12)
+#define AUDIO_ADIE_LOOP_EN	(14)
 
 /* DIG_CFG1 */
 

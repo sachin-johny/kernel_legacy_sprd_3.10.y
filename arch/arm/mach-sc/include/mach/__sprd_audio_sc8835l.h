@@ -716,6 +716,15 @@ static inline int arch_audio_sleep_xtl_disable(void)
 #endif
 	return 0;
 }
+static inline int arch_audio_codec_adie_loop_clk_en(int on)
+{
+	int ret = 0;
+	if (on)
+		ret = sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, BIT_CLK_AUD_LOOP_EN, BIT_CLK_AUD_LOOP_EN);
+	else
+		ret = sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, 0, BIT_CLK_AUD_LOOP_EN);
+	return ret;
+}
 
 /* ------------------------------------------------------------------------- */
 
