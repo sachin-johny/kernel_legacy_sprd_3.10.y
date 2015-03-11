@@ -1274,79 +1274,98 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	disable_irq_nosync(irq);
 	//irq_set_irq_type(irq,IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING);
 	gpio_wake_status = gpio_get_value(GPIO_MARLIN_WAKE);
-
-	/*add count irq for loopcheck*/
-	irq_count_change++;
-
-	/* avoid gpio jump , so need check the last and cur gpio value.*/	
-	do_gettimeofday(&cur_time);
-	if(ack_gpio_status == gpio_wake_status)
+	
+	if(get_sprd_download_fin() != 1)
 	{
-		usec = time_d_value(&ack_irq_time, &cur_time);
-		if(usec < 200)    //means invalid gpio value, so discard
-		{
-			SDIOTRAN_ERR("discard gpio%d irq\n", GPIO_MARLIN_WAKE);
-			enable_irq(irq);
-			return;
+		if(!marlin_sdio_ready.marlin_sdio_init_start_tag && gpio_wake_status){
+			SDIOTRAN_ERR("start,g_val=%d",gpio_wake_status);
+			irq_set_irq_type(irq,IRQF_TRIGGER_LOW);
+			marlin_sdio_ready.marlin_sdio_init_start_tag = 1;
 		}
-		SDIOTRAN_ERR("gpio%d %d-->%d\n",GPIO_MARLIN_WAKE, gpio_wake_status, 1 - gpio_wake_status );
-		gpio_wake_status = 1 - gpio_wake_status;
+		else if(!marlin_sdio_ready.marlin_sdio_init_end_tag && (!gpio_wake_status)){
+			SDIOTRAN_ERR("end,g_val=%d",gpio_wake_status);
+			irq_set_irq_type(irq,IRQF_TRIGGER_RISING);
+			marlin_sdio_ready.marlin_sdio_init_end_tag = 1;
+		}
+		else
+		{
+			SDIOTRAN_ERR("marlin gpio0 err interupt,g_val=%d",gpio_wake_status);
+		}	
+	}
+	else
+	{
+		/*add count irq for loopcheck*/
+		irq_count_change++;
+
+		/* avoid gpio jump , so need check the last and cur gpio value.*/	
+		do_gettimeofday(&cur_time);
+		if(ack_gpio_status == gpio_wake_status)
+		{
+			usec = time_d_value(&ack_irq_time, &cur_time);
+			if(usec < 200)    //means invalid gpio value, so discard
+			{
+				SDIOTRAN_ERR("discard gpio%d irq\n", GPIO_MARLIN_WAKE);
+				enable_irq(irq);
+				return;
+			}
+			SDIOTRAN_ERR("gpio%d %d-->%d\n",GPIO_MARLIN_WAKE, gpio_wake_status, 1 - gpio_wake_status );
+			gpio_wake_status = 1 - gpio_wake_status;
+			
+		}
+		ack_irq_time    = cur_time;
+		ack_gpio_status = gpio_wake_status;
+		SDIOTRAN_ERR("%d-%d\n",GPIO_MARLIN_WAKE, gpio_wake_status );
 		
-	}
-	ack_irq_time    = cur_time;
-	ack_gpio_status = gpio_wake_status;
-	SDIOTRAN_ERR("%d-%d\n",GPIO_MARLIN_WAKE, gpio_wake_status );
-	
-	if(gpio_wake_status)
-		irq_set_irq_type(irq, IRQ_TYPE_EDGE_FALLING);
-	else
-		irq_set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
-	
-	if(gpio_wake_status)
-	{
-		wake_lock(&marlinpub_wakelock);
-		sleep_para.gpio_up_time = jiffies;
-	}
-	else
-	{
-		wake_unlock(&marlinpub_wakelock);
-		sleep_para.gpio_down_time = jiffies;
-	}
-	
-	if((!gpio_wake_status) && time_after(sleep_para.gpio_down_time,sleep_para.gpio_up_time))
-	{
-		if(jiffies_to_msecs(sleep_para.gpio_down_time -\
-			sleep_para.gpio_up_time)>200)
+		if(gpio_wake_status)
+			irq_set_irq_type(irq, IRQ_TYPE_EDGE_FALLING);
+		else
+			irq_set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
+		
+		if(gpio_wake_status)
 		{
-			SDIOTRAN_ERR("BT REQ!!!");
-			marlin_bt_wake_flag = 1;
-			wake_lock_timeout(&BT_AP_wakelock, HZ*2);    //wsh
+			wake_lock(&marlinpub_wakelock);
+			sleep_para.gpio_up_time = jiffies;
 		}
+		else
+		{
+			wake_unlock(&marlinpub_wakelock);
+			sleep_para.gpio_down_time = jiffies;
+		}
+		
+		if((!gpio_wake_status) && time_after(sleep_para.gpio_down_time,sleep_para.gpio_up_time))
+		{
+			if(jiffies_to_msecs(sleep_para.gpio_down_time -\
+				sleep_para.gpio_up_time)>200)
+			{
+				SDIOTRAN_ERR("BT REQ!!!");
+				marlin_bt_wake_flag = 1;
+				wake_lock_timeout(&BT_AP_wakelock, HZ*2);    //wsh
+			}
 
-	}
-	
-	//schedule_work(&marlinack_wq);
-	if(gpio_wake_status)
-	{
-		if( atomic_read(&gpioreq_need_pulldown) )//if(sleep_para.gpioreq_need_pulldown)
-		{	
-			sleep_para.gpio_opt_tag = 1;
-			SDIOTRAN_ERR("gpio_opt_tag-1\n");
-			mod_timer(&(sleep_para.gpio_timer), jiffies + msecs_to_jiffies(sleep_para.marlin_waketime) );
-			if(sdio_w_flag == 1)
-			{
-				complete(&marlin_ack);
-				SDIOTRAN_ERR("ack-sem\n");
-				set_marlin_sleep(0xff,0x1);
-			}
-			else
-			{
-				SDIOTRAN_ERR("sdio_w_flag:%d\n", sdio_w_flag);
-				set_marlin_sleep(0xff,0x2);
+		}
+		
+		//schedule_work(&marlinack_wq);
+		if(gpio_wake_status)
+		{
+			if( atomic_read(&gpioreq_need_pulldown) )//if(sleep_para.gpioreq_need_pulldown)
+			{	
+				sleep_para.gpio_opt_tag = 1;
+				SDIOTRAN_ERR("gpio_opt_tag-1\n");
+				mod_timer(&(sleep_para.gpio_timer), jiffies + msecs_to_jiffies(sleep_para.marlin_waketime) );
+				if(sdio_w_flag == 1)
+				{
+					complete(&marlin_ack);
+					SDIOTRAN_ERR("ack-sem\n");
+					set_marlin_sleep(0xff,0x1);
+				}
+				else
+				{
+					SDIOTRAN_ERR("sdio_w_flag:%d\n", sdio_w_flag);
+					set_marlin_sleep(0xff,0x2);
+				}
 			}
 		}
 	}
-	
 	enable_irq(irq);
 
 	return IRQ_HANDLED;
@@ -1525,9 +1544,10 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 	
 	spin_lock_init(&sleep_spinlock);
 	sdio_init_timer();
+	clear_sdiohal_status();
 	wakeup_slave_pin_init();
 	marlin_wake_intr_init();
-	marlin_sdio_sync_init();
+	//marlin_sdio_sync_init();
 //case6
 #if defined(CONFIG_SDIODEV_TEST)
 		gaole_creat_test();

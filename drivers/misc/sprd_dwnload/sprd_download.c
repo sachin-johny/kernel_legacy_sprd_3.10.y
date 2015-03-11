@@ -176,7 +176,7 @@ static int sprd_download_write(struct file *filp, const char __user *buf,size_t 
 		/*wait marlin ready*/
 		while(1){
 			if(1 == get_sdiohal_status()){
-				marlin_sdio_sync_uninit();
+				//marlin_sdio_sync_uninit();
 				flag_cali = true;
 				printk("wait marlin ready ok\n");
 				break;
