@@ -233,6 +233,23 @@ int shark_fm_cfg_rf_reg(void)
 	return 0;
 }
 
+int trout_fm_alternative(void)
+{
+    fm_rf_ops->write_reg(0x400, 0x0021);  //Receive Mode (IF @ -100kHz), Alternative
+    sci_glb_set(FM_REG_FM_CTRL, BIT_17);
+    msleep(5);
+    
+    return 0;
+}
+
+int trout_fm_default(void)
+{
+    fm_rf_ops->write_reg(0x400, 0x0011);  //Receive Mode (IF @ +100kHz), Default
+    sci_glb_clr(FM_REG_FM_CTRL, BIT_17); 
+    msleep(5);
+    
+    return 0;
+}
 int trout_fm_init(void)
 {
 	sprd_get_rf2351_ops(&fm_rf_ops);
@@ -372,6 +389,7 @@ int shark_fm_wait_int(int time_out)
 int trout_fm_set_tune(u16 freq)
 {
 	u32 reg_data;
+	int ret = 0;
 	trout_fm_dis();
 	shark_fm_int_dis();
 	shark_fm_int_clr();
@@ -388,12 +406,12 @@ int trout_fm_set_tune(u16 freq)
 	READ_REG(FM_REG_CHAN, &reg_data);
 	TROUT_PRINT("chan reg_data is %d\n", reg_data);
 
-	shark_fm_wait_int(3000);
+	ret = shark_fm_wait_int(3000);
 
 	/*dump_fm_regs();*/
 
 	shark_fm_int_clr();
-	return 0;
+	return ret;
 }
 
 int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)

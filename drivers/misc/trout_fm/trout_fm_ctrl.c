@@ -45,7 +45,7 @@ static int _trout_fm_mute(int mute)
 static int _trout_fm_open(struct file *file)
 {
 	int ret = -EINVAL;
-  int status;
+    int status;
 
 	TROUT_PRINT("start open fm module...");
 
@@ -145,16 +145,16 @@ static int _trout_fm_set_freq(struct file *file, void *priv, const struct v4l2_f
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 	wifimac_sleep();//hugh:add for power 20130425
 #endif
-	return ret;
+	return 0;
 }
 
 static int _trout_fm_seek(struct file *file, void *priv, const struct v4l2_hw_freq_seek *seek)
 {
 	u16 freq = 0;
+	u16 freq2 = 0;
 	u16 reserved = 0;
 	u8 direction = seek->seek_upward;
 	int err;
-
 	err = trout_fm_get_frequency((u16*)(&freq));
 	if(err) {
 		TROUT_PRINT("trout_fm_seek error due to get_frequency error.");
@@ -169,14 +169,28 @@ static int _trout_fm_seek(struct file *file, void *priv, const struct v4l2_hw_fr
 		direction, /* seek direction*/
 		3000, /* time out */
 		&reserved);
-	if (err) {
-		TROUT_PRINT("_trout_fm_seek Error !");
+    if (err) {
+        TROUT_PRINT("_trout_fm_seek Error !");
+        trout_fm_set_tune(freq);
 	}
+    else {
+        trout_fm_alternative();
+        freq2 = reserved + 2;
+        err = trout_fm_set_tune(freq2);
+        trout_fm_default();
+        if (err) {
+            TROUT_PRINT("_trout_fm_seek Error !");
+            trout_fm_set_tune(freq);
+        }
+        else {
+            trout_fm_set_tune(reserved);
+        }
+    }
 	if (mute != 1) {
 		_trout_fm_mute(mute);
 	}
 
-	return err ? -EINVAL : 0;
+	return  err ? -EINVAL : 0;
 }
 
 static int _trout_fm_control(struct file *file, void *priv, struct v4l2_control *ctrl) {

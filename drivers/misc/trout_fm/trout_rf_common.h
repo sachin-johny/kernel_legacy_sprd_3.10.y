@@ -46,5 +46,7 @@ extern int trout_rf_spi_mode(void);
 extern int trout_rf_adi_mode(void);
 extern int trout_fm_pcm_pin_cfg(void);
 extern int trout_fm_iis_pin_cfg(void);
+extern int trout_fm_alternative(void);
+extern int trout_fm_default(void);
 
 #endif
