@@ -1586,7 +1586,7 @@ static const struct mmc_bus_ops mmc_ops = {
 	.resume = NULL,
 	.power_restore = mmc_power_restore,
 	.alive = mmc_alive,
-	.shutdown = mmc_shutdown,
+	.shutdown = NULL,//mmc_shutdown,
 };
 
 static const struct mmc_bus_ops mmc_ops_unsafe = {
@@ -1598,7 +1598,7 @@ static const struct mmc_bus_ops mmc_ops_unsafe = {
 	.resume = mmc_resume,
 	.power_restore = mmc_power_restore,
 	.alive = mmc_alive,
-	.shutdown = mmc_shutdown,
+	.shutdown = NULL,//mmc_shutdown,
 };
 
 static void mmc_attach_bus_ops(struct mmc_host *host)

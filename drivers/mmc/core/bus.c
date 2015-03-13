@@ -200,7 +200,7 @@ static struct bus_type mmc_bus_type = {
 	.uevent		= mmc_bus_uevent,
 	.probe		= mmc_bus_probe,
 	.remove		= mmc_bus_remove,
-	.shutdown	= mmc_bus_shutdown,
+	.shutdown	= NULL,//mmc_bus_shutdown,
 	.pm		= &mmc_bus_pm_ops,
 };
 

@@ -2480,7 +2480,7 @@ static struct mmc_driver mmc_driver = {
 	.remove		= mmc_blk_remove,
 	.suspend	= mmc_blk_suspend,
 	.resume		= mmc_blk_resume,
-	.shutdown	= mmc_blk_shutdown,
+	.shutdown	= NULL,//mmc_blk_shutdown,
 };
 
 static int __init mmc_blk_init(void)
