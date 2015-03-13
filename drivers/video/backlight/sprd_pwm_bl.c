@@ -318,7 +318,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 
         sprd_pwm_bl.bldev = bldev;
         platform_set_drvdata(pdev, bldev);
-        bldev->ops->update_status(bldev);
+     //   bldev->ops->update_status(bldev);
 
 #ifdef CONFIG_EARLYSUSPEND
         sprd_pwm_bl.sprd_early_suspend_desc.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
