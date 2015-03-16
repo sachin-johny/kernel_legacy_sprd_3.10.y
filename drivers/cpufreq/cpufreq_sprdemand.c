@@ -1913,7 +1913,8 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 	bool ret;
 	static int tp_time = 0;
 
-	if(strcmp(handle->dev->name,"focaltech_ts"))
+	if(strcmp(handle->dev->name,"focaltech_ts")&&
+		strcmp(handle->dev->name,"msg2138_ts"))
 		return;
 
 	up(&tb_sem);
