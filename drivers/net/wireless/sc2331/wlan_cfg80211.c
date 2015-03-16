@@ -2564,7 +2564,15 @@ static void wlan_cfg80211_reg_notify(struct wiphy *wiphy,
 		last_start_freq = 0;
 		for (channel = 0; channel < sband->n_channels; channel++) {
 			chan = &sband->channels[channel];
+			if (chan->flags & IEEE80211_CHAN_PASSIVE_SCAN)
+			{
+				chan->flags &= ~IEEE80211_CHAN_PASSIVE_SCAN;
+			}
 
+			if (chan->flags & IEEE80211_CHAN_NO_IBSS)
+			{
+				chan->flags &= ~IEEE80211_CHAN_NO_IBSS;
+			}
 			reg_rule =
 			    freq_reg_info(wiphy, MHZ_TO_KHZ(chan->center_freq));
 			if (IS_ERR(reg_rule))
