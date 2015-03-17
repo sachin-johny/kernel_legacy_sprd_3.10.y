@@ -465,8 +465,8 @@ static int sprd_rtc_set_alarm(struct device *dev,
 		wake_unlock(&rtc_wake_lock);
 	}else{
 		sci_adi_clr(ANA_RTC_INT_EN, RTC_ALARM_BIT);
-		//sci_adi_raw_write((unsigned long)ANA_RTC_SPG_UPD, SPRD_RTC_LOCK);
-		//msleep(150);
+		sci_adi_raw_write((unsigned long)ANA_RTC_SPG_UPD, SPRD_RTC_LOCK);
+		msleep(150);
 	}
 
 	return 0;
