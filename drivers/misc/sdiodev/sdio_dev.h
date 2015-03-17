@@ -86,10 +86,6 @@ typedef struct _marlin_sdio_ready
 }MARLIN_SDIO_READY_T;
 
 
-
-extern volatile bool marlin_mmc_suspend;
-
-
 #define MARLIN_SDIO_VERSION	"1.0"
 #define INVALID_SDIO_CHN 16
 #define INVALID_SDIO_WCHN 8

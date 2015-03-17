@@ -99,7 +99,6 @@ static struct completion marlin_ack = {0};
 
 static SLEEP_POLICY_T sleep_para = {0};
 spinlock_t sleep_spinlock ;
-volatile bool marlin_mmc_suspend = 0;
 MARLIN_PM_RESUME_WAIT_INIT(marlin_sdio_wait);
 
 /************************************************************************/
@@ -1571,8 +1570,7 @@ static int marlin_sdio_suspend(struct device *dev)
 {
 	mutex_lock(&g_mgr_suspend.func_lock);
 	SDIOTRAN_ERR("[%s]enter\n", __func__);
-	marlin_mmc_suspend = 1;
-
+	
 	gpio_marlin_req_tag = gpio_get_value(GPIO_MARLIN_TO_AP);
 
 	if(gpio_marlin_req_tag)
@@ -1602,14 +1600,6 @@ static int marlin_sdio_resume(struct device *dev)
 	set_marlin_wakeup(0, 1);
 	mod_timer(&(sleep_para.gpio_timer),jiffies + msecs_to_jiffies(1500));
 	/***************/
-	
-	marlin_mmc_suspend = 0;
-	gpio_marlin_req_tag = gpio_get_value(GPIO_MARLIN_TO_AP);
-	if(!gpio_marlin_req_tag)
-		irq_set_irq_type(sdio_irq_num,IRQF_TRIGGER_RISING);
-	gpio_marlinwake_tag = gpio_get_value(GPIO_MARLIN_WAKE);
-	if(!gpio_marlinwake_tag)
-		irq_set_irq_type(marlinwake_irq_num,IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING);	
 	smp_mb();
 	SDIOTRAN_ERR("[%s]ok\n", __func__);
 	return 0;
