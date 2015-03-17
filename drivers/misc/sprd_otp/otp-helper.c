@@ -369,3 +369,18 @@ int sci_efuse_get_cal_v2(unsigned int *pdata, int num)
 }
 
 EXPORT_SYMBOL_GPL(sci_efuse_get_cal_v2);
+
+int sci_efuse_ib_trim_get(unsigned int *p_cal_data)
+{
+	unsigned int data,blk0;
+
+	blk0 = __adie_efuse_read(0);
+	if (blk0 & (1 << 7)) {
+		return 0;
+	}
+
+	data = __adie_efuse_read_bits(BITSINDEX(15, 0), 7);
+	*p_cal_data = data;
+	return 1;
+}
+EXPORT_SYMBOL_GPL(sci_efuse_ib_trim_get);
