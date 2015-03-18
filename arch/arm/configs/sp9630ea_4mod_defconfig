@@ -1162,7 +1162,7 @@ CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
 CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcmdhd.cal"
 CONFIG_WLAN_SDIO=y
 CONFIG_BCMDHD_SDIO=y
-# CONFIG_DHD_USE_STATIC_BUF is not set
+CONFIG_DHD_USE_STATIC_BUF=y
 # CONFIG_DHD_USE_SCHED_SCAN is not set
 # CONFIG_BRCMFMAC is not set
 # CONFIG_HOSTAP is not set
