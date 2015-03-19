@@ -1883,7 +1883,9 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 {
 	int result = -1;
 	bool	is_refresh_lock_down=false;
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
 	bool	is_clk_enable=false;
+#endif
 
 	pr_debug("sprdfb: [%s]: %d, %d\n", __FUNCTION__, enable,  dev->enable);
 
@@ -1942,9 +1944,11 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 		/*result = overlay_close(dev);*/
 	}
 ERROR_ENABLE_OVERLAY:
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
 	if(is_clk_enable){
 		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_COUNT);
 	}
+#endif
 	if(is_refresh_lock_down){
 		up(&dev->refresh_lock);
 	}
