@@ -2333,10 +2333,14 @@ static int wlan_change_beacon(wlan_vif_t *vif,
 static int itm_wlan_start_ap(wlan_vif_t *vif,
 			     struct cfg80211_beacon_data *beacon)
 {
+#define SSID_LEN_OFFSET		(37)
 	struct ieee80211_mgmt *mgmt;
-	u16 mgmt_len;
+	u16 mgmt_len, index = 0;
 	int ret;
 	unsigned char vif_id = vif->id;
+	u8 *data = NULL;
+	struct wlan_cmd_hidden_ssid *hssid = &(vif->hssid);
+
 	printkd("%s enter\n", __func__);
 	wlan_change_beacon(vif, beacon);
 	if (beacon->head == NULL) {
@@ -2344,6 +2348,10 @@ static int itm_wlan_start_ap(wlan_vif_t *vif,
 		return -EINVAL;
 	}
 	mgmt_len = beacon->head_len;
+
+	/*add 1 byte for hidden ssid flag*/
+	mgmt_len += 1;
+
 	if (beacon->tail)
 		mgmt_len += beacon->tail_len;
 
@@ -2352,10 +2360,41 @@ static int itm_wlan_start_ap(wlan_vif_t *vif,
 		printkd("[%s][%d][%d]\n", __func__, __LINE__, mgmt);
 		return -EINVAL;
 	}
-	memcpy((u8 *) mgmt, beacon->head, beacon->head_len);
+	data = (u8 *)mgmt;
+
+	memcpy(data, beacon->head, SSID_LEN_OFFSET);
+	index += SSID_LEN_OFFSET;
+
+	/*hostapd config ssid by ioctl*/
+	if (hssid->ssid_len == (unsigned char)*(beacon->head + index)) {
+		/*modify ssid_len*/
+		*(data + index) = (unsigned char)(hssid->ssid_len + 1);
+		index += 1;
+		/*copy ssid*/
+		memcpy(data + index, hssid->ssid, hssid->ssid_len);
+		index += hssid->ssid_len;
+		/*set hidden ssid flag*/
+		*(data + index) = (unsigned char)(hssid->ignore_broadcast_ssid);
+		index += 1;
+	} else { /*hostapd not config ssid*/
+		unsigned char org_len = (unsigned char)*(beacon->head + index);
+		/*modify ssid_len*/
+		*(data + index) = org_len + 1;
+		index += 1;
+		/*copy ssid*/
+		memcpy(data + index, beacon->head + index, org_len);
+		index += org_len;
+		/*set no hidden ssid flag*/
+		*(data + index) = 0;
+		index += 1;
+	}
+	/*cope left info*/
+	memcpy(data + index, beacon->head + index - 1,
+		   beacon->head_len + 1 - index);
+
 	if (beacon->tail)
-		memcpy((u8 *) mgmt + beacon->head_len, beacon->tail,
-		       beacon->tail_len);
+		memcpy(data + beacon->head_len + 1,
+			   beacon->tail, beacon->tail_len);
 
 	ret = wlan_cmd_start_ap(vif_id, (unsigned char *)mgmt, mgmt_len);
 	kfree(mgmt);

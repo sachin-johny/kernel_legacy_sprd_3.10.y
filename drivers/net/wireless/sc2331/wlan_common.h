@@ -232,6 +232,7 @@ typedef struct {
 	msg_q_t msg_q[2];
 	bool tcp_ack_suppress;
 	wlan_tcp_session_t tcp_session[MAX_TCP_SESSION];
+	struct wlan_cmd_hidden_ssid	hssid;
 } wlan_vif_t;
 
 typedef struct {
