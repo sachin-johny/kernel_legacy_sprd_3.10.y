@@ -1596,9 +1596,9 @@ static int marlin_sdio_resume(struct device *dev)
 	SDIOTRAN_ERR("[%s]enter\n", __func__);
 	/****************/
 	mutex_unlock(&g_mgr_suspend.func_lock);
+	mod_timer(&(sleep_para.gpio_timer),jiffies + msecs_to_jiffies(1500));
 	sleep_para.gpio_opt_tag = 0;
 	set_marlin_wakeup(0, 1);
-	mod_timer(&(sleep_para.gpio_timer),jiffies + msecs_to_jiffies(1500));
 	/***************/
 	smp_mb();
 	SDIOTRAN_ERR("[%s]ok\n", __func__);
