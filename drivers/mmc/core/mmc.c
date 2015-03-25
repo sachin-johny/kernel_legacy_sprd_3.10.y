@@ -1510,6 +1510,10 @@ out:
  */
 static int mmc_shutdown(struct mmc_host *host)
 {
+	if (mmc_bus_needs_resume(host)){
+		printk("mmc_shutdown return\n");
+		return 0;
+	}
 	return _mmc_suspend(host, false);
 }
 
@@ -1586,7 +1590,7 @@ static const struct mmc_bus_ops mmc_ops = {
 	.resume = NULL,
 	.power_restore = mmc_power_restore,
 	.alive = mmc_alive,
-	.shutdown = NULL,//mmc_shutdown,
+	.shutdown = mmc_shutdown,
 };
 
 static const struct mmc_bus_ops mmc_ops_unsafe = {
@@ -1598,7 +1602,7 @@ static const struct mmc_bus_ops mmc_ops_unsafe = {
 	.resume = mmc_resume,
 	.power_restore = mmc_power_restore,
 	.alive = mmc_alive,
-	.shutdown = NULL,//mmc_shutdown,
+	.shutdown = mmc_shutdown,
 };
 
 static void mmc_attach_bus_ops(struct mmc_host *host)

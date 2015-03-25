@@ -57,7 +57,7 @@ static const unsigned int tacc_mant[] = {
 			__res |= resp[__off-1] << ((32 - __shft) % 32);	\
 		__res & __mask;						\
 	})
-
+extern void mmc_hw_reset_for_init(struct mmc_host *host);
 /*
  * Given the decoded CSD structure, decode the raw CID to our CID structure.
  */
@@ -1120,6 +1120,11 @@ static int mmc_sd_suspend(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
+	if (mmc_bus_needs_resume(host)){
+		printk("mmc_sd_suspend return\n");
+		return 0;
+	}
+
 	mmc_claim_host(host);
 	if (!mmc_host_is_spi(host))
 		err = mmc_deselect_cards(host);
@@ -1148,13 +1153,13 @@ static int mmc_sd_resume(struct mmc_host *host)
 	mmc_claim_host(host);
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	retries = 5;
+
 	while (retries) {
 		err = mmc_sd_init_card(host, host->ocr, host->card);
-
 		if (err) {
 			printk(KERN_ERR "%s: Re-init card rc = %d (retries = %d)\n",
 			       mmc_hostname(host), err, retries);
-			mdelay(5);
+			mmc_hw_reset_for_init(host);
 			retries--;
 			continue;
 		}
@@ -1189,7 +1194,7 @@ static const struct mmc_bus_ops mmc_sd_ops = {
 	.resume = NULL,
 	.power_restore = mmc_sd_power_restore,
 	.alive = mmc_sd_alive,
-	.shutdown = NULL,//mmc_sd_suspend,
+	.shutdown = mmc_sd_suspend,
 };
 
 static const struct mmc_bus_ops mmc_sd_ops_unsafe = {
@@ -1199,7 +1204,7 @@ static const struct mmc_bus_ops mmc_sd_ops_unsafe = {
 	.resume = mmc_sd_resume,
 	.power_restore = mmc_sd_power_restore,
 	.alive = mmc_sd_alive,
-	.shutdown = NULL,//mmc_sd_suspend,
+	.shutdown = mmc_sd_suspend,
 };
 
 static void mmc_sd_attach_bus_ops(struct mmc_host *host)

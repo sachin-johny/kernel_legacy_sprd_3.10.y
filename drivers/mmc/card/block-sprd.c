@@ -1792,33 +1792,17 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			}
 			break;
 		case MMC_BLK_CMD_ERR:
+			printk("%s MMC_BLK_CMD_ERR\n",__func__);
 			ret = mmc_blk_cmd_err(md, card, brq, req, ret);
 			if (!mmc_blk_reset(md, card->host, type))
 				break;
 			goto cmd_abort;
-		case MMC_BLK_RETRY:
-			if (retry++ < 5)
-				break;
-			/* Fall through */
-		case MMC_BLK_ABORT:
-			if (!mmc_blk_reset(md, card->host, type))
-				break;
-			goto cmd_abort;
-		case MMC_BLK_DATA_ERR: {
-			int err;
-			err = mmc_blk_reset(md, card->host, type);
-			if (!err)
-				break;
-			if (err == -ENODEV ||
-				mmc_packed_cmd(mq_rq->cmd_type))
-				goto cmd_abort;
-			printk("%s MMC_BLK_DATA_ERR\n",__func__);
-			bad_card_and_remove(card->host);
-			break;
-			/* Fall through */
-		}
 		case MMC_BLK_ECC_ERR:
-			if (brq->data.blocks > 1) {
+			printk("%s MMC_BLK_ECC_ERR\n",__func__);
+			/* treat ECC as normal err,for decrease reset time.
+			<disable_multi = 1> will cause reset time increase*/
+			#if 0
+			(brq->data.blocks > 1) {
 				/* Redo read one sector at a time */
 				pr_warning("%s: retrying using single block read\n",
 					   req->rq_disk->disk_name);
@@ -1835,7 +1819,33 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			if (!ret)
 				goto start_new_req;
 			break;
+			#endif
+		case MMC_BLK_RETRY:
+			printk("%s MMC_BLK_RETRY\n",__func__);
+			/* remove retry,for decrease reset time.
+			if (retry++ < 5)
+				break;*/
+			/* Fall through */
+		case MMC_BLK_ABORT:
+			printk("%s MMC_BLK_ABORT\n",__func__);
+			if (!mmc_blk_reset(md, card->host, type))
+				break;
+			goto cmd_abort;
+		case MMC_BLK_DATA_ERR: {
+			int err;
+			printk("%s MMC_BLK_DATA_ERR\n",__func__);
+			err = mmc_blk_reset(md, card->host, type);
+			if (!err)
+				break;
+			if (err == -ENODEV ||
+				mmc_packed_cmd(mq_rq->cmd_type))
+				goto cmd_abort;
+			bad_card_and_remove(card->host);
+			break;
+			/* Fall through */
+		}
 		case MMC_BLK_NOMEDIUM:
+			printk("%s MMC_BLK_NOMEDIUM\n",__func__);
 			goto cmd_abort;
 		default:
 			pr_err("%s: Unhandled return value (%d)",
@@ -2464,11 +2474,9 @@ static void bad_card_and_remove(struct mmc_host *host)
         return;
     }
     if(mmc_card_sd(host->card)){
-       mmc_card_set_removed(host->card);
-	mmc_remove_card(host->card);
-	mmc_detach_bus(host);
+	mmc_card_set_removed(host->card);
 	mmc_power_off(host);
-      printk("%s defect card removed\n",__func__);
+	printk("%s defect card removed\n",__func__);
     }
 }
 
@@ -2480,7 +2488,7 @@ static struct mmc_driver mmc_driver = {
 	.remove		= mmc_blk_remove,
 	.suspend	= mmc_blk_suspend,
 	.resume		= mmc_blk_resume,
-	.shutdown	= NULL,//mmc_blk_shutdown,
+	.shutdown	= mmc_blk_shutdown,
 };
 
 static int __init mmc_blk_init(void)
