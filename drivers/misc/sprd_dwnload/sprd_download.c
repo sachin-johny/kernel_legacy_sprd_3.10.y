@@ -250,7 +250,6 @@ static int __init sprd_download_init(void)
 		printk(KERN_ERR "DLoade_open fail(NO MEM) \n");
 		return -ENOMEM;
 	}
-	msleep(500);
 	return err;
 }
 static void __exit sprd_download_cleanup(void)
