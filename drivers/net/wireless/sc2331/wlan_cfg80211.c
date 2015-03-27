@@ -2773,6 +2773,7 @@ static void init_wiphy_parameters(struct wiphy *wiphy)
 
 	/*Default not in powersave state */
 	wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;
+	wiphy->flags |= WIPHY_FLAG_CUSTOM_REGULATORY;
 #if defined(CONFIG_PM) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	/*Set WoWLAN flags */
 	wiphy->wowlan.flags = WIPHY_WOWLAN_ANY | WIPHY_WOWLAN_DISCONNECT;
