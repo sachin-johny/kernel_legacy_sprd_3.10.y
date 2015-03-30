@@ -955,9 +955,19 @@ void rndis_add_hdr(struct sk_buff *skb)
 	header = (void *)skb_push(skb, sizeof(*header));
 	memset(header, 0, sizeof *header);
 	header->MessageType = cpu_to_le32(RNDIS_MSG_PACKET);
-	header->MessageLength = cpu_to_le32(skb->len);
 	header->DataOffset = cpu_to_le32(36);
 	header->DataLength = cpu_to_le32(skb->len - sizeof(*header));
+	/* Workaround for USB HW quirks! 2015.03.30 */
+	if ((skb->len & 0x3)) {
+		skb_pad(skb, 4 - skb->len % 4);
+		skb_put(skb, 4 - skb->len % 4);
+	}
+	/* Workaround for USB ZLP problem! 2015.03.30 */
+	if (!(skb->len & 0x1FF)) {
+		skb_pad(skb, 4);
+		skb_put(skb, 4);
+	}
+	header->MessageLength = cpu_to_le32(skb->len);
 }
 
 void rndis_free_response(int configNr, u8 *buf)
