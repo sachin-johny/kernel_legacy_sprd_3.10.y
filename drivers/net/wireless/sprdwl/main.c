@@ -383,22 +383,18 @@ int sprdwl_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 	struct android_wifi_priv_cmd priv_cmd;
 	u8 addr[6] = {0};
 
-	if (!ifr->ifr_data) {
-		ret = -EINVAL;
-		goto exit;
-	}
+	if (!ifr->ifr_data)
+		return -EINVAL;
 	if (copy_from_user(&priv_cmd, ifr->ifr_data,
 			   sizeof(struct android_wifi_priv_cmd))) {
-		ret = -EFAULT;
-		goto exit;
+		return -EFAULT;
 	}
 
 	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
 	if (!command) {
 		dev_err(&priv->wdev->netdev->dev,
 			"%s: Failed to allocate command!\n", __func__);
-		ret = -ENOMEM;
-		goto exit;
+		return -ENOMEM;
 	}
 	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
 		ret = -EFAULT;

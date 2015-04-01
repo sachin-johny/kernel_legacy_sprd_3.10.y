@@ -1232,6 +1232,7 @@ int sprdwl_sipc_alloc(struct sprdwl_priv *sprdwl_priv)
 #ifndef CONFIG_OF
 fail_notifier:
 	sprdwl_priv->wlan_sipc = NULL;
+	kfree(wlan_sipc->event_buf);
 #endif
 fail_eventbuf:
 	kfree(wlan_sipc->recv_buf);
@@ -1254,6 +1255,7 @@ void sprdwl_sipc_free(struct sprdwl_priv *sprdwl_priv)
 #endif
 	kfree(sprdwl_priv->wlan_sipc->send_buf);
 	kfree(sprdwl_priv->wlan_sipc->recv_buf);
+	kfree(sprdwl_priv->wlan_sipc->event_buf);
 	kfree(sprdwl_priv->wlan_sipc);
 	sprdwl_priv->wlan_sipc = NULL;
 }
