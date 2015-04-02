@@ -395,8 +395,9 @@ static void set_real_alarm(struct work_struct *work)
 	ktime_t min, now;
 	unsigned long flags;
 	struct rtc_device *rtc;
-	int i;
+	int i, ret;
 	struct rtc_wkalrm alarm;
+	int alarm_type = 0;
 
 	spin_lock_irqsave(&freezer_delta_lock, flags);
 	min = freezer_delta;
@@ -421,8 +422,10 @@ static void set_real_alarm(struct work_struct *work)
 		if (!next)
 			continue;
 		delta = ktime_sub(next->expires, base->gettime());
-		if (!min.tv64 || (delta.tv64 < min.tv64))
+		if (!min.tv64 || (delta.tv64 < min.tv64)) {
 			min = delta;
+			alarm_type = i;
+		}
 	}
 	if (min.tv64 == 0){
 		wake_unlock(&alarm_wake_lock);
@@ -437,8 +440,16 @@ static void set_real_alarm(struct work_struct *work)
 
 	alarm.time = rtc_ktime_to_tm(now);
 	alarm.enabled = 1;
-	if (rtc->ops && rtc->ops->set_alarm)
-		rtc->ops->set_alarm(rtc->dev.parent, &alarm);
+
+	if (rtc->ops && rtc->ops->set_alarm) {
+		if (alarm_type == ALARM_POWEROFF) {
+			ret = rtc->ops->ioctl(rtc->dev.parent,
+				SET_POWERON_ALARM, (unsigned long)&alarm);
+		} else {
+			ret = rtc->ops->ioctl(rtc->dev.parent,
+				SET_WAKE_ALARM, (unsigned long)&alarm);
+		}
+	}
 
 	wake_unlock(&alarm_wake_lock);
 	return;
