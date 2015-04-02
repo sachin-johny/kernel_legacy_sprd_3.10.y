@@ -378,66 +378,8 @@ static void wlan_tx_timeout(struct net_device *dev)
 	return;
 }
 
-#define HIDDEN_SSID		"HIDDEN_SSID"
-int wlan_priv_cmd(struct net_device *dev, struct ifreq *ifr)
-{
-	int ret = 0;
-	char *command = NULL;
-	struct android_wifi_priv_cmd priv_cmd;
-	wlan_vif_t *vif;
-	unsigned char vif_id;
-
-	vif = ndev_to_vif(dev);
-	vif_id = vif->id;
-
-	if (!ifr->ifr_data)
-		return -EINVAL;
-	if (copy_from_user(&priv_cmd, ifr->ifr_data,
-			   sizeof(struct android_wifi_priv_cmd))) {
-		printke("%s: %s Failed to copy user priv data!\n",
-				__func__, dev->name);
-		return -EFAULT;
-	}
-
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
-	if (!command) {
-		printke("%s: %s Failed to allocate command!\n",
-				__func__, dev->name);
-		return -ENOMEM;
-	}
-	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
-		printke("%s: %s Failed to copy user buf data!\n",
-				__func__, dev->name);
-		ret = -EFAULT;
-		goto exit;
-	}
-
-	if (strnicmp(command, HIDDEN_SSID, strlen(HIDDEN_SSID)) == 0) {
-		int skip = strlen(HIDDEN_SSID) + 1;
-		struct wlan_cmd_hidden_ssid *hssid = &(vif->hssid);
-		sscanf(command + skip, "%x %x %s",
-			   &(hssid->ignore_broadcast_ssid),
-			   &(hssid->ssid_len), hssid->ssid);
-		printke("broadcast:%x\n", hssid->ignore_broadcast_ssid);
-		printke("len:%x\n", hssid->ssid_len);
-		printke("ssid:%s\n", hssid->ssid);
-	}
-
-exit:
-	kfree(command);
-
-	return ret;
-}
-
 static int wlan_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
 {
-	switch (cmd) {
-	case SIOCDEVPRIVATE + 1:
-		return wlan_priv_cmd(ndev, req);
-	default:
-		printke("ioctl cmd id = %d undefined\n", cmd);
-		return -ENOTSUPP;
-	}
 	return 0;
 }
 

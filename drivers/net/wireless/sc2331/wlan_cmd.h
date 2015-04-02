@@ -137,12 +137,6 @@ struct wlan_cmd_scan_ssid {
 	unsigned char ssid[0];
 } __attribute__ ((packed));
 
-struct wlan_cmd_hidden_ssid {
-	unsigned int ignore_broadcast_ssid;
-	unsigned int ssid_len;
-	char ssid[32];
-} __attribute__ ((packed));
-
 struct wlan_cmd_set_frag {
 	unsigned short frag;
 } __attribute__ ((packed));
