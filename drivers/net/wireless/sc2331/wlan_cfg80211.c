@@ -404,19 +404,6 @@ static int wlan_cfg80211_cancel_remain_on_channel(struct wiphy *wiphy,
 static int wlan_cfg80211_del_station(struct wiphy *wiphy,
 				     struct net_device *ndev, u8 *mac)
 {
-	wlan_vif_t *vif;
-	unsigned char vif_id;
-	vif = ndev_to_vif(ndev);
-	vif_id = vif->id;
-
-	if (!mac) {
-		wiphy_dbg(wiphy, "Ignore NULL MAC address!\n");
-		goto out;
-	}
-
-	wiphy_info(wiphy, "%s %pM\n", __func__, mac);
-	wlan_cmd_disassoc(vif_id, mac, WLAN_REASON_DEAUTH_LEAVING);
-out:
 	return 0;
 }
 

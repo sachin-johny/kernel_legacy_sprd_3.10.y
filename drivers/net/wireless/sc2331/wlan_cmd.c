@@ -266,24 +266,6 @@ int wlan_cmd_start_ap(unsigned char vif_id, unsigned char *beacon,
 	return ret;
 }
 
-int wlan_cmd_disassoc(unsigned char vif_id, const unsigned char *mac_addr,
-		     unsigned short reason_code)
-{
-	int dataLen = 0;
-	struct wlan_cmd_disassoc *ptr = NULL;
-
-	dataLen = sizeof(struct wlan_cmd_disassoc);
-	ptr = kzalloc(dataLen, GFP_KERNEL);
-	if (NULL != mac_addr)
-		memcpy(&(ptr->mac[0]), mac_addr, 6);
-	ptr->reason_code = reason_code;
-
-	wlan_cmd_send_recv(vif_id, (unsigned char *)ptr, dataLen,
-			   WIFI_CMD_DISASSOC, CMD_WAIT_TIMEOUT);
-
-	return 0;
-}
-
 int wlan_cmd_register_frame(unsigned char vif_id,
 			    struct wlan_cmd_register_frame_t *data)
 {

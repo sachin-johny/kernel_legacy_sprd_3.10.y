@@ -59,8 +59,6 @@ enum ITM_HOST_TROUT3_CMD_LIST {
 	WIFI_CMD_GET_IP,
 	WIFI_CMD_REQ_LTE_CONCUR,
 	WIFI_CMD_SET_CQM_RSSI,
-	WIFI_CMD_MULTICAST_FILTER,
-	WIFI_CMD_DISASSOC,
 	WIFI_CMD_MAX,
 
 	WIFI_EVENT_CONNECT = 128,
@@ -303,11 +301,6 @@ struct wlan_event_mic_failure {
 	u8 is_mcast;
 } __attribute__ ((packed));
 
-struct wlan_cmd_disassoc {
-	unsigned char mac[6];
-	unsigned short reason_code;
-} __attribute__ ((packed));
-
 extern int wlan_cmd_send_recv(unsigned char vif_id, unsigned char *pData,
 			      int len, int type, int timeout);
 extern int wlan_cmd_start_ap(unsigned char vif_id, unsigned char *beacon,
@@ -393,6 +386,4 @@ extern int wlan_cmd_set_regdom(unsigned char vif_id, unsigned char *regdom,
 			       unsigned int len);
 extern int wlan_cmd_cmq_rssi(unsigned char vif_id, s32 rssi_thold,
 			     u32 rssi_hyst, unsigned char type);
-extern int wlan_cmd_disassoc(unsigned char vif_id, const unsigned char *mac_addr,
-                             unsigned short reason_code);
 #endif
