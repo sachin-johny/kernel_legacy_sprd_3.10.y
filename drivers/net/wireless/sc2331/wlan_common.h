@@ -126,6 +126,8 @@ typedef enum {
 typedef struct {
 	int exit;
 	struct semaphore sem;
+	int drv_status;
+	 int cp2_status;
 } drv_sync_t;
 
 typedef struct {
@@ -170,6 +172,7 @@ typedef struct {
 	struct mutex cmd_lock;
 	struct mutex mem_lock;
 	unsigned char *mem;
+	atomic_t refcnt;
 } wlan_cmd_t;
 
 typedef struct {

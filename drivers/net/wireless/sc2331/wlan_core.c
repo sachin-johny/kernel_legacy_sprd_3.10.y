@@ -105,6 +105,8 @@ static int hw_rx(const unsigned short chn, unsigned char *buf,
 	static unsigned int cnt;
 	if (NULL == buf)
 		return ERROR;
+	if (2 == g_wlan.sync.cp2_status)
+		 return ERROR;
 	ret = sdio_dev_read(chn, buf, &read_len);
 	*len = read_len;
 	if (0 != ret) {
@@ -135,6 +137,8 @@ static int hw_tx(const unsigned short chn, unsigned char *buf, unsigned int len)
 	printkp("[tx][%d][%d]\n", big_hdr->tx_cnt, chn);
 	len = (len + 1023) & 0xFC00;
 	wlan_tx_buf_decode(buf, len);
+	if (2 == g_wlan.sync.cp2_status)
+		return ERROR;
 	ret = sdio_dev_write(chn, buf, len);
 	if (0 != ret) {
 		printke("call sdio_dev_write err:%d\n", ret);
@@ -246,6 +250,11 @@ static int wlan_xmit(struct sk_buff *skb, struct net_device *dev)
 	msg_q_t *msg_q;
 	int ret, addr_len = 0;
 	struct sk_buff *wapi_skb;
+
+	if (2 == g_wlan.sync.cp2_status) {
+		dev_kfree_skb(skb);
+		return NETDEV_TX_OK;
+	}
 
 	vif = ndev_to_vif(dev);
 	msg_q = wlan_tcpack_q(vif, skb->data, skb->len);
@@ -1110,9 +1119,55 @@ static ssize_t wlan_proc_write(struct file *file, const char __user *buffer,
 	return count;
 }
 
+static int wlan_proc_open(struct inode *inode, struct file *filp)
+{
+	 return 0;
+}
+
+static int wlan_proc_release(struct inode *inode, struct file *filp)
+{
+	return 0;
+}
+
+static int wlan_proc_ioctl(struct file *filp,
+			   unsigned int cmd, unsigned long arg)
+{
+	int ret;
+	unsigned char r_buf[128] = {0};
+	unsigned char s_buf[32] = {0};
+	printkd("[%s][cmd][%d]\n", __func__, cmd);
+	if (copy_from_user(r_buf, (unsigned char *)arg, 32)) {
+		printke("[%s][err]\n", __func__);
+		return -EFAULT;
+	}
+	switch (cmd) {
+	case 0x10:
+		g_wlan.sync.cp2_status = 2;
+		g_wlan.sync.exit = 1;
+		g_wlan.cmd.wakeup = 1;
+		wake_up(&g_wlan.cmd.waitQ);
+		printke("[CP2][ASSERT]\n");
+		if (2 != g_wlan.sync.drv_status)
+			break;
+		ret = 0x11;
+		memcpy(&s_buf[0], ret, 4);
+		ret = copy_to_user((unsigned char *)arg, &s_buf[0], 4);
+		if (0 != ret) {
+			printkd("[%s][%d][err]\n", __func__, __LINE__);
+			return -EFAULT;
+		}
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
 static const struct file_operations wlan_proc_fops = {
 	.owner = THIS_MODULE,
 	.write = wlan_proc_write,
+	.unlocked_ioctl = wlan_proc_ioctl,
+	.open = wlan_proc_open,
+	.release = wlan_proc_release,
 };
 
 static const struct file_operations lte_concur_proc_fops = {
@@ -1138,6 +1193,8 @@ int wlan_module_init(struct device *dev)
 	} else {
 		printke("sdio is ready !!!\n");
 	}
+	g_wlan.sync.cp2_status = 0;
+	g_wlan.sync.drv_status = 0;
 	marlin_pa_enable(true);
 
 	memset((unsigned char *)(&g_wlan), 0, sizeof(wlan_info_t));
@@ -1209,6 +1266,8 @@ int wlan_module_init(struct device *dev)
 	}
 	g_dbg = 0x0;
 	SET_BIT(g_dbg, 1);
+	g_wlan.sync.drv_status = 1;
+	g_wlan.sync.cp2_status = 1;
 	printke("%s ok!\n", __func__);
 	return OK;
 }
@@ -1218,12 +1277,22 @@ EXPORT_SYMBOL_GPL(wlan_module_init);
 int wlan_module_exit(struct device *dev)
 {
 	printke("%s enter\n", __func__);
+	g_wlan.sync.drv_status = 2;
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
 	marlin_pa_enable(false);
-	if (ITM_NONE_MODE != g_wlan.netif[NETIF_0_ID].mode)
-		wlan_cmd_mac_close(NETIF_0_ID, g_wlan.netif[NETIF_0_ID].mode);
-	if (ITM_NONE_MODE != g_wlan.netif[NETIF_1_ID].mode)
-		wlan_cmd_mac_close(NETIF_1_ID, g_wlan.netif[NETIF_1_ID].mode);
+	if (1 == g_wlan.sync.cp2_status) {
+		if (ITM_NONE_MODE != g_wlan.netif[NETIF_0_ID].mode)
+			wlan_cmd_mac_close(NETIF_0_ID,
+					   g_wlan.netif[NETIF_0_ID].mode);
+		if (ITM_NONE_MODE != g_wlan.netif[NETIF_1_ID].mode)
+			wlan_cmd_mac_close(NETIF_1_ID,
+					   g_wlan.netif[NETIF_1_ID].mode);
+	} else {
+		 g_wlan.sync.exit = 1;
+		 g_wlan.cmd.wakeup = 1;
+		 wake_up(&g_wlan.cmd.waitQ);
+	}
+
 	g_wlan.sync.exit = 1;
 	core_up();
 	down(&(g_wlan.sync.sem));
@@ -1243,6 +1312,7 @@ int wlan_module_exit(struct device *dev)
 	remove_proc_entry("lte_concur", NULL);
 	unregister_early_suspend(&g_wlan.hw.early_suspend);
 	wake_lock_destroy(&g_wlan.hw.wlan_lock);
+	g_wlan.sync.drv_status = 3;
 	printke("%s ok!\n", __func__);
 	return OK;
 }
