@@ -143,6 +143,8 @@ typedef struct {
 	struct timer_list wakeup_timer;
 	unsigned long wakeup_time;
 	int can_sleep;
+	int suspend;
+	int is_timer_set;
 } hw_info_t;
 
 typedef struct {

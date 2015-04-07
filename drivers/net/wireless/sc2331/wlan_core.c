@@ -404,27 +404,61 @@ struct net_device_ops wlan_ops = {
 static void wlan_early_suspend(struct early_suspend *es)
 {
 	printkd("[%s]\n", __func__);
+	g_wlan.hw.suspend = 1;
 	wlan_cmd_sleep(1);
 }
 
 static void wlan_late_resume(struct early_suspend *es)
 {
 	printkd("[%s]\n", __func__);
+	g_wlan.hw.suspend = 0;
 	wlan_cmd_sleep(2);
 }
 
 int wlan_wakeup(void)
 {
 	int ret;
-	if (0 != g_wlan.hw.wakeup)
+	if (0 != g_wlan.hw.wakeup) {
+		if ((1 == g_wlan.hw.suspend) && (1 == g_wlan.hw.is_timer_set))
+			mod_timer(&(g_wlan.hw.wakeup_timer),
+				  jiffies + msecs_to_jiffies(g_wlan.hw.wakeup_time));
 		return OK;
-	wake_lock(&g_wlan.hw.wlan_lock);
+	}
 	printkd("time[1]\n");
+	wake_lock(&g_wlan.hw.wlan_lock);
 	mod_timer(&(g_wlan.hw.wakeup_timer),
 		  jiffies + msecs_to_jiffies(g_wlan.hw.wakeup_time));
+	g_wlan.hw.is_timer_set = 1;
 	g_wlan.hw.wakeup = 1;
 	g_wlan.hw.can_sleep = 0;
 	return ret;
+}
+
+int buf_empty(void)
+{
+	int i, j;
+	msg_q_t   *msg_q;
+	txfifo_t  *txfifo;
+	rxfifo_t  *rxfifo;
+	rxfifo = &(g_wlan.rxfifo);
+	if (rx_fifo_used(rxfifo))
+		return ERROR;
+	for (i = 0; i < 2; i++) {
+		txfifo = &(g_wlan.netif[i].txfifo);
+		if (tx_fifo_used(txfifo))
+			return ERROR;
+		for (j = 0; j < 2; j++) {
+			msg_q = &(g_wlan.netif[i].msg_q[j]);
+			if (msg_num(msg_q))
+				return ERROR;
+		}
+		for (j = 0; j < MAX_TCP_SESSION; j++) {
+			msg_q = &(g_wlan.netif[i].tcp_session[j].msg_q);
+				if (msg_num(msg_q))
+					return ERROR;
+		}
+	}
+	return OK;
 }
 
 void wlan_sleep(void)
@@ -439,15 +473,18 @@ void wlan_sleep(void)
 
 void wakeup_timer_func(unsigned long data)
 {
-	if ((g_wlan.wlan_trans.sem.count <= 0) && (0 == g_wlan.hw.can_sleep)) {
+	if ((g_wlan.wlan_trans.sem.count <= 0) &&
+		(0 == g_wlan.hw.can_sleep) && (OK == buf_empty())) {
 		printkd("timer[3]\n");
 		g_wlan.hw.can_sleep = 1;
 		trans_up();
+		g_wlan.hw.is_timer_set = 0;
 		return;
 	}
 	printkd("timer[2]\n");
 	mod_timer(&(g_wlan.hw.wakeup_timer),
 		  jiffies + msecs_to_jiffies(g_wlan.hw.wakeup_time));
+	g_wlan.hw.is_timer_set = 1;
 }
 
 int wlan_rx(rxfifo_t *rx_fifo, int cnt)
@@ -979,7 +1016,8 @@ static int wlan_hw_init(hw_info_t *hw)
 		       "wlan_sc2331_lock");
 	init_timer(&g_wlan.hw.wakeup_timer);
 	g_wlan.hw.wakeup_timer.function = wakeup_timer_func;
-	g_wlan.hw.wakeup_time = 500;
+	g_wlan.hw.wakeup_time = 1500;
+	g_wlan.hw.suspend = 0;
 	return OK;
 }
 
@@ -1156,7 +1194,7 @@ int wlan_module_init(struct device *dev)
 {
 	int ret;
 
-	printke("[%s] [ version:0x28 ] [ time(%s %s) ]\n", __func__, __DATE__,
+	printke("[%s] [ version:0x30 ] [ time(%s %s) ]\n", __func__, __DATE__,
 		__TIME__);
 	if (NULL == dev)
 		return -EPERM;
@@ -1185,7 +1223,7 @@ int wlan_module_init(struct device *dev)
 	wlan_tx_msg_q_alloc(&(g_wlan.netif[NETIF_1_ID]));
 
 	g_wlan.netif[NETIF_0_ID].tcp_ack_suppress = true;
-	g_wlan.netif[NETIF_1_ID].tcp_ack_suppress = true;
+	g_wlan.netif[NETIF_1_ID].tcp_ack_suppress = false;
 	wlan_tcpack_buf_malloc(&(g_wlan.netif[NETIF_0_ID]));
 	wlan_tcpack_buf_malloc(&(g_wlan.netif[NETIF_1_ID]));
 	ret = wlan_rx_buf_alloc();
