@@ -103,6 +103,7 @@ typedef struct {
 	unsigned short bit_map;
 	spinlock_t lock;
 	int gpio_high;
+	int chn_timeout_cnt;
 	unsigned long timeout;
 	unsigned long timeout_time;
 	bool timeout_flag;

@@ -652,6 +652,18 @@ static int check_valid_chn(int flag, unsigned short status,
 	return index;
 }
 
+static void sdio_info_dump(void )
+{
+	int ret;
+	unsigned short chn = 0;
+	ret = sdio_chn_status(0xFF, &chn);
+	if (0 == ret)
+		printke("[sdio_chn_info][0x%x][gpio][%d]\n", chn, gpio_get_value(SDIO_RX_GPIO) );
+	else
+		printke("sdio_chn_status error:%d\n", ret);
+	return;
+}
+
 static int wlan_trans_thread(void *data)
 {
 	int i, vif_id, ret, done, retry, sem_count, send_pkt, index, wake_flag,
@@ -684,13 +696,6 @@ static int wlan_trans_thread(void *data)
 		thread_sleep_policy(thread);
 		send_pkt = retry = done = 0;
 		sem_count = g_wlan.wlan_trans.sem.count;
-/*
-		if (0 == wake_flag)
-		{
-			wake_lock(&g_wlan.hw.wlan_lock);
-			wake_flag = 1;
-		}
-*/
 RX:
 		gpio_status = gpio_get_value(SDIO_RX_GPIO);
 		if (!gpio_status) {
@@ -706,16 +711,6 @@ RX:
 		}
 		wlan_wakeup();
 		ret = set_marlin_wakeup(0, 1);
-
-	#if 0
-		if (0 != ret) {
-			printke("rx call set_marlin_wakeup error:%d\n", ret);
-			if (ret != -ETIMEDOUT)
-				msleep(200);
-			goto TX;
-		}
-	#endif
-
 		if (0 != ret) {
 			if( (ITM_NONE_MODE != g_wlan.netif[0].mode) || (ITM_NONE_MODE != g_wlan.netif[1].mode) )	
 			{
@@ -753,6 +748,7 @@ RX_SLEEP:
 					printke
 					    ("[SDIO_RX_CHN][TIMEOUT][%lu] jiffies:%lu\n",
 					     rx_chn->timeout_time, jiffies);
+					sdio_info_dump();
 					msleep(300);
 					rx_chn->timeout_flag = false;
 				}
@@ -793,17 +789,6 @@ TX:
 				continue;
 			wlan_wakeup();
 			ret = set_marlin_wakeup(0, 1);
-	#if 0
-			if (0 != ret) {
-				printke("tx call set_marlin_wakeup error:%d\n",
-					ret);
-				if (ret != -ETIMEDOUT)
-					msleep(200);
-				retry++;
-				continue;
-			}
-	#endif
-
 			if (0 != ret) {
 				if( (ITM_NONE_MODE != g_wlan.netif[0].mode) || (ITM_NONE_MODE != g_wlan.netif[1].mode) )	
 				{
@@ -833,17 +818,20 @@ TX:
 TX_SLEEP:
 				if (false == tx_chn->timeout_flag) {
 					tx_chn->timeout_flag = true;
-					tx_chn->timeout =
-					    jiffies +
-					    msecs_to_jiffies(tx_chn->
-							     timeout_time);
+					tx_chn->timeout = jiffies +
+					    msecs_to_jiffies(tx_chn->timeout_time);
 				} else {
 					if (time_after
 					    (jiffies, tx_chn->timeout)) {
-						printke
-						    ("[SDIO_TX_CHN][TIMEOUT][%lu] jiffies:%lu\n",
-						     tx_chn->timeout_time,
-						     jiffies);
+						printke("[SDIO_TX_CHN][TIMEOUT][%lu] jiffies:%lu\n",tx_chn->timeout_time, jiffies);
+						sdio_info_dump();
+						tx_chn->chn_timeout_cnt++;
+						if(tx_chn->chn_timeout_cnt > 10)
+						{
+							printke("[SDIO_TX_CHN][ERROR][block time more than 6s][need reset CP2]\n");
+							mdbg_assert_interface();
+							tx_chn->chn_timeout_cnt = 0;
+						}
 						msleep(300);
 						tx_chn->timeout_flag = false;
 					}
@@ -851,8 +839,9 @@ TX_SLEEP:
 				retry++;
 				continue;
 			}
-			if (true == tx_chn->timeout_flag) {
+			if ( (true == tx_chn->timeout_flag) || (tx_chn->chn_timeout_cnt > 0) ) {
 				tx_chn->timeout_flag = false;
+				tx_chn->chn_timeout_cnt = 0;
 			}
 			ret =
 			    tx_fifo_out(vif_id, index, tx_fifo, hw_tx,
@@ -869,13 +858,6 @@ TX_SLEEP:
 		}
 
 		if (g_wlan.sync.exit) {
-/*
-			if(1 == wake_flag)
-			{
-				wake_unlock(&g_wlan.hw.wlan_lock);
-				wake_flag = 0;
-			}
-*/
 			break;
 		}
 		gpio_status = gpio_get_value(SDIO_RX_GPIO);
@@ -895,13 +877,6 @@ TX_SLEEP:
 		else
 			thread->null_run++;
 		wlan_sleep();
-/*
-		if ((done >= g_wlan.wlan_trans.sem.count) && (wake_flag = 1) &&(!gpio_status) )
-		{
-			wake_unlock(&g_wlan.hw.wlan_lock);
-			wake_flag = 0;
-		}
-*/
 		for (i = 0; i < done; i++) {
 			trans_down();
 		}
