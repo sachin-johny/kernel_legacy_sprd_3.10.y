@@ -55,6 +55,18 @@ struct mdbg_proc_t{
 static struct mdbg_proc_t *mdbg_proc=NULL;
 
 
+void mdbg_assert_interface(void)
+{
+	strncpy(mdbg_proc->assert.buf,"wifi channel is blocked",23);
+	printk(KERN_INFO "mdbg_assert_interface:%s\n",mdbg_proc->assert.buf);
+	mdbg_proc->assert.rcv_len = 23;
+	complete(&mdbg_proc->assert.completed);
+	wake_up_interruptible(&mdbg_proc->assert.rxwait);
+
+	return;
+}
+EXPORT_SYMBOL_GPL(mdbg_assert_interface);
+
 void mdbg_assert_read(void)
 {
 	int read_len;
