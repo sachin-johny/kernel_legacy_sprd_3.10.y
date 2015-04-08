@@ -1467,9 +1467,10 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 		err = mmc_deselect_cards(host);
 	}
 	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
-
+#if 0 //mmc_power_off will cause mmc error when other thread operate mmc when system have not shutdown complete.
 	if (!err)
 		mmc_power_off(host);
+#endif
 out:
 	mmc_release_host(host);
 	return err;
