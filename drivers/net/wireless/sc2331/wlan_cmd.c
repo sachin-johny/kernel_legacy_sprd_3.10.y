@@ -994,8 +994,8 @@ int wlan_rx_rsp_process(const unsigned char vif_id, r_msg_hdr_t *msg)
 	wlan_cmd_t  *cmd = &(g_wlan.cmd);
 
 	if (mutex_trylock(&cmd->mem_lock)) {
-		printkd("[RECV_RSP][%d][%s][%d]\n", vif_id,
-			get_cmd_name(msg->subtype), msg->len);
+		printkd("[RECV_RSP][%d][%s]\n", vif_id,
+			get_cmd_name(msg->subtype) );
 		if (msg->len + sizeof(r_msg_hdr_t) > WLAN_CMD_MEM_LEN)
 			BUG_ON(1);
 		memcpy(cmd->mem, (unsigned char *)msg,

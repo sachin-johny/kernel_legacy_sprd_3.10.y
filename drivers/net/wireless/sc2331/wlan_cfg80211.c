@@ -232,6 +232,98 @@ static const struct ieee80211_txrx_stypes
 
 #define WLAN_EID_VENDOR_SPECIFIC 221
 
+/**************************************************************************************/
+#define MAC_LEN			(24)
+#define ADDR1_OFFSET	(4)
+#define ADDR2_OFFSET	(10)
+#define ACTION_TYPE		(13)
+#define ACTION_SUBTYPE_OFFSET	(30)
+#define PUB_ACTION		(0x4)
+#define P2P_ACTION		(0x7f)
+
+static char type_name[16][32] = {
+	"ASSO REQ",
+	"ASSO RESP",
+	"REASSO REQ",
+	"REASSO RESP",
+	"PROBE REQ",
+	"PROBE RESP",
+	"TIMING ADV",
+	"RESERVED",
+	"BEACON",
+	"ATIM",
+	"DISASSO",
+	"AUTH",
+	"DEAUTH",
+	"ACTION",
+	"ACTION NO ACK",
+	"RESERVED"
+};
+
+static char pub_action_name[][32] = {
+	"GO Negotiation Req",
+	"GO Negotiation Resp",
+	"GO Negotiation Conf",
+	"P2P Invitation Req",
+	"P2P Invitation Resp",
+	"Device Discovery Req",
+	"Device Discovery Resp",
+	"Provision Discovery Req",
+	"Provision Discovery Resp",
+	"Reserved"
+};
+
+static char p2p_action_name[][32] = {
+	"Notice of Absence",
+	"P2P Precence Req",
+	"P2P Precence Resp",
+	"GO Discoverability Req",
+	"Reserved"
+};
+
+static void cfg80211_dump_frame_prot_info(int send, int freq, const unsigned char *buf, int len)
+{
+	char print_buf[1024];
+	int buf_idx = 0;
+	int type = ((*buf) & IEEE80211_FCTL_FTYPE) >> 2;
+	int subtype = ((*buf) & IEEE80211_FCTL_STYPE) >> 4;
+	int action, action_subtype;
+
+	buf_idx += sprintf(print_buf + buf_idx, "[cfg80211] ");
+
+	if (send)
+		buf_idx += sprintf(print_buf + buf_idx, "SEND: ");
+	else
+		buf_idx += sprintf(print_buf + buf_idx, "RECV: ");
+
+	if (type == IEEE80211_FTYPE_MGMT) {
+		buf_idx += sprintf(print_buf + buf_idx, "%dMHz, %s, ",
+				   freq, type_name[subtype]);
+	} else {
+		buf_idx += sprintf(print_buf + buf_idx,
+				   "%dMHz, not mgmt frame, type=%d, ",
+				   freq, type);
+	}
+	if (subtype == ACTION_TYPE) {
+		action = *(buf + MAC_LEN);
+		action_subtype = *(buf + ACTION_SUBTYPE_OFFSET);
+		if (action == PUB_ACTION)
+			buf_idx += sprintf(print_buf + buf_idx, "PUB:%s ",
+					   pub_action_name[action_subtype]);
+		else if (action == P2P_ACTION)
+			buf_idx += sprintf(print_buf + buf_idx, "P2P:%s ",
+					   p2p_action_name[action_subtype]);
+		else
+			buf_idx += sprintf(print_buf + buf_idx,
+					   "Unknown ACTION(0x%x)", action);
+	}
+	buf_idx += sprintf(print_buf + buf_idx, MACSTR , buf[4],  buf[5],  buf[6],  buf[7],  buf[8],  buf[9] );
+	buf_idx += sprintf(print_buf + buf_idx, "  ");
+	buf_idx += sprintf(print_buf + buf_idx, MACSTR , buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]);
+	printkd("%s\n", print_buf);
+}
+/**************************************************************************************/
+
 void get_ssid(unsigned char *data, unsigned char *ssid)
 {
 	unsigned char len = 0;
@@ -585,6 +677,7 @@ void cfg80211_report_frame(unsigned char vif_id, unsigned char *data,
 	mac_ptr = (unsigned char *)(report_frame + 1);
 	mac_len = report_frame->frame_len;
 	printkd("%s, frame_len:%d\n", __func__, mac_len);
+	cfg80211_dump_frame_prot_info(0, freq, mac_ptr, mac_len);
 	cfg80211_rx_mgmt(&(vif->wdev), freq, 0, mac_ptr, mac_len, GFP_KERNEL);
 }
 
@@ -2099,9 +2192,7 @@ void cfg80211_report_mlme_tx_status(unsigned char vif_id,
 
 	vif = id_to_vif(vif_id);
 	tx_status = (struct wlan_report_mgmt_tx_status *)pdata;
-	printkd("[%s]: index: %lld\n", __func__,tx_status->cookie);
-	printkd("data len is %d\n", len);
-	hex_dump("receive is:", strlen("receive is:"), pdata, len);
+	printkd("[%s] cookie:%lld, ack:%d\n", __func__, tx_status->cookie, tx_status->ack);
 	cfg80211_mgmt_tx_status(&vif->wdev, tx_status->cookie, tx_status->buf,
 				tx_status->len, tx_status->ack, GFP_KERNEL);
 	printkd("cfg80211_mgmt_tx_status end\n");
@@ -2150,6 +2241,7 @@ static int wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
 		return -EAGAIN;
 	printkd("[%s][%d] enter\n", __func__, vif_id);
 	printkd("[%s], index: %lld, cookie: %lld\n", __func__, mgmt_index, *cookie);
+	cfg80211_dump_frame_prot_info(1,  chan->center_freq, buf, len);
 	*cookie = mgmt_index;
 	if (len > 0) {
 		ret = wlan_cmd_set_tx_mgmt(vif_id, chan, dont_wait_for_ack, wait, cookie, buf, len);
