@@ -3564,14 +3564,9 @@ static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 				dma_desc->status.b.bs = BS_HOST_BUSY;
 				dma_desc->status.b.l = 0;
 				dma_desc->status.b.ioc = 0;
-				/** WORKAROUND: If this buffer length is not multiple of DWORD,
-				 ** and it wants to concatenate to next buffer, DMA would behave
-				 ** abnormally, so it is sent as a short packet.
-				 */
-				//if( core_if->snpsid <= OTG_CORE_REV_2_94a)
 				dma_desc->status.b.sp =
 					(req->short_packet && xfer_est % ep->maxpacket) ?
-						1 : (xfer_est % 4 ? 1 : 0);
+						1 : 0;
 				dma_desc->status.b.bytes = xfer_est;
 				dma_desc->buf = dma_addr + offset;
 				dma_desc->status.b.sts = 0;

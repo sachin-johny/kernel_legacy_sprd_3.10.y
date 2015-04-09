@@ -781,7 +781,7 @@ static inline void ep0_out_start(dwc_otg_core_if_t * core_if,
 			DWC_WRITE_REG32(&dev_if->out_ep_regs[0]->doepdma,
 					dev_if->dma_setup_desc_addr
 					[dev_if->setup_desc_index]);
-			/**	printk("ep0 dma_desc_addr[%d].dmareg(0x%x) == (0x%x , 0x%x: 0x%x,0x%x)\n", 
+			/**	printk("ep0 dma_desc_addr[%d].dmareg(0x%x) == (0x%x , 0x%x: 0x%x,0x%x)\n",
 				dev_if->setup_desc_index,&dev_if->out_ep_regs[0]->doepdma,
 				dma_desc, dev_if->dma_setup_desc_addr[dev_if->setup_desc_index],
 				DWC_READ_REG32(&dev_if->out_ep_regs[0]->doepdma),dma_desc->status.d32);
@@ -1000,7 +1000,7 @@ int32_t dwc_otg_pcd_handle_usb_reset_intr(dwc_otg_pcd_t * pcd)
 	} else {
 		dcfg.b.devaddr = 0;
 		DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
-	
+
 		/* setup EP0 to receive SETUP packets */
 		if (core_if->snpsid <= OTG_CORE_REV_2_94a)
 			ep0_out_start(core_if, pcd);
@@ -2234,6 +2234,8 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 						deptsiz.b.pktcnt);
 				}
 			} else {
+				uint32_t sts = 0;
+
 				dma_desc = ep->dwc_ep.desc_addr;
 				byte_count = 0;
 				ep->dwc_ep.sent_zlp = 0;
@@ -2254,13 +2256,14 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 					for (i = 0; i < ep->dwc_ep.desc_cnt;
 					     ++i) {
 						desc_sts = dma_desc->status;
-						byte_count += desc_sts.b.bytes;
+						sts |= (desc_sts.b.bs != BS_DMA_DONE)
+								|| (desc_sts.b.sts != RTS_SUCCESS);
 						dma_desc++;
 					}
 #ifdef DWC_UTE_CFI
 				}
 #endif
-				if (byte_count == 0) {
+				if (sts == 0) {
 					ep->dwc_ep.xfer_count =
 					    ep->dwc_ep.total_len;
 					is_last = 1;
@@ -3134,7 +3137,7 @@ static void dwc_otg_pcd_handle_noniso_bna(dwc_otg_pcd_ep_t * ep)
 		    &GET_CORE_IF(pcd)->dev_if->in_ep_regs[dwc_ep->num]->diepctl;
 		dmaaddr = &GET_CORE_IF(pcd)->dev_if->in_ep_regs[dwc_ep->num]->diepdma;
 		dmskaddr = &GET_CORE_IF(pcd)->dev_if->dev_global_regs->diepmsk;
-                
+
 	}
 
 	DWC_WARN("Ep%d %s, DescCnt = %d, depctl = 0x%x, \
