@@ -35,6 +35,7 @@
 #include <linux/fs_struct.h>
 #include <linux/posix_acl.h>
 #include <asm/uaccess.h>
+#include <linux/statfs.h>
 
 #include "internal.h"
 #include "mount.h"
@@ -117,6 +118,22 @@
  * POSIX.1 2.4: an empty pathname is invalid (ENOENT).
  * PATH_MAX includes the nul terminator --RR.
  */
+
+#define DATA_MNT_POINT "/data"
+#define DATA_PATITION_FS_TYPE "ext4"
+#define PATH_NAME_MAX 4096
+
+//unsigned long g_rsrvd_size = EMMC_DATA_RESERVED_SIZE;
+//EXPORT_SYMBOL_GPL(g_rsrvd_size);
+
+extern unsigned long g_rsrvd_size;
+extern char reseved_space_nand_where[1024];
+extern char reseved_space_emmc_where[1024];
+
+int check_can_ops(struct dentry *cur_dir, struct path* path);
+int check_have_space(struct dentry* dest, struct path* path);
+int statfs_data_partition(struct path *dst_path, struct kstatfs* stat);
+
 void final_putname(struct filename *name)
 {
 	if (name->separate) {
@@ -3175,6 +3192,14 @@ retry:
 	if (IS_ERR(dentry))
 		return PTR_ERR(dentry);
 
+	/*sprd reserve 10M space*/
+	error = check_can_ops(dentry, &path);
+	if (error < 0) {
+		pr_err("[mknodat]error is %d\n", error);
+		done_path_create(&path, dentry);
+		return error;
+	}
+
 	if (!IS_POSIXACL(path.dentry->d_inode))
 		mode &= ~current_umask();
 	error = security_path_mknod(&path, dentry, mode, dev);
@@ -3242,6 +3267,14 @@ retry:
 	dentry = user_path_create(dfd, pathname, &path, lookup_flags);
 	if (IS_ERR(dentry))
 		return PTR_ERR(dentry);
+
+	/*sprd reserve 10M space*/
+	error = check_can_ops(dentry, &path);
+	if (error < 0) {
+		pr_err("[mkdirat]error is %d\n", error);
+		done_path_create(&path, dentry);
+		return error;
+	}
 
 	if (!IS_POSIXACL(path.dentry->d_inode))
 		mode &= ~current_umask();
@@ -4063,6 +4096,197 @@ int page_symlink(struct inode *inode, const char *symname, int len)
 			!(mapping_gfp_mask(inode->i_mapping) & __GFP_FS));
 }
 
+/*for data_partition*/
+int statfs_data_partition(struct path *dst_path, struct kstatfs* stat)
+{
+	int error = 0;
+
+	if ((!dst_path) || (!stat)) {
+		error = -1;
+		goto out;
+	}
+
+	error = vfs_statfs(dst_path, stat);
+
+out:
+	return error;
+}
+
+bool is_in_black_list(uid_t euid, gid_t egid)
+{
+	bool ret = false;
+	int i = 0;
+	uid_t id[2] = {euid, egid};
+
+	if (!strncmp(current->comm, "slog", 4)) {
+		return (ret = true);
+	}
+
+	
+
+	for (i=0; i< 2; i++) {
+		switch (id[i]) {
+		case 1001://AID_RADIO
+		case 1005://AID_AUDIO
+		case 1006://AID_CAMERA
+		case 1012://AID_INSTALL
+		case 1013://AID_MEDIA
+		case 1022://AID_UNUSED1
+		case 1023://AID_MEDIA_RW
+		case 1024://AID_MTP
+		case 1025://AID_UNUSED2
+		case 9999://AID_NOBODY
+			ret = true;
+			break;
+		default:
+			ret = false;
+			break;
+		}
+
+		if (ret)
+			break;
+	}
+
+
+
+
+	return ret;
+}
+
+bool check_have_permission(void)
+{
+	bool ret = false;
+	uid_t cur_uid, cur_euid;
+	gid_t cur_gid, cur_egid;
+
+	current_uid_gid(&cur_uid, &cur_gid);
+	current_euid_egid(&cur_euid, &cur_egid);
+
+	ret = (cur_euid < 10000 || cur_egid < 10000)?(!is_in_black_list(cur_euid, cur_egid)):false;
+
+	return ret;
+}
+
+
+int check_have_space(struct dentry* dest, struct path* path)
+{
+	int err = 0;
+	long long total_size = 0;
+	long long avail_size = 0;
+	struct kstatfs stat;
+	bool is_perm = false;
+	uid_t euid;
+	gid_t egid;
+	if (!dest) {
+		err = -1;
+		goto out;
+	}
+
+	err = statfs_data_partition(path, &stat);
+	if (err) {
+		err = -1;
+		goto out;
+	}
+
+	total_size = (long long)stat.f_blocks * (long long)stat.f_bsize;
+	avail_size = (long long)stat.f_bavail * (long long)stat.f_bsize;
+
+	if (avail_size < g_rsrvd_size) {
+		is_perm = check_have_permission();
+		if (!is_perm) {
+			current_euid_egid(&euid, &egid);
+			pr_err("[check_have_space]avail_size = %lld, total_size = %lld, \
+					euid = %u, egid = %u, current->pid %u, current->comm = %s\n",
+					avail_size, total_size, euid, egid, current->pid, current->comm);
+			err = -1;
+			goto out;
+		}
+	}
+out:
+	return err;
+}
+
+int check_can_ops(struct dentry *cur_dir, struct path* path)
+{
+	char* path_buf = NULL;
+	char kbuf[PATH_NAME_MAX];
+	int err = 0;
+	unsigned long dirname_len = 0;
+	struct kstatfs stat;
+	struct mount *mnt;
+	if (!path || !cur_dir) {
+		err = -EFAULT;
+		goto out;
+	}
+
+	br_read_lock(&vfsmount_lock);
+	list_for_each_entry(mnt, &cur_dir->d_sb->s_mounts, mnt_instance) {
+		if(strncmp(mnt->mnt_devname, reseved_space_emmc_where, strlen(mnt->mnt_devname))
+			&& strncmp(mnt->mnt_devname, reseved_space_nand_where, strlen(mnt->mnt_devname))){
+			br_read_unlock(&vfsmount_lock);
+			goto out;
+		}
+	}
+	br_read_unlock(&vfsmount_lock);
+
+
+	dirname_len = strlen(cur_dir->d_name.name);
+
+	memset(kbuf, 0, PATH_NAME_MAX);
+	path_buf = d_path(path, kbuf, (PATH_NAME_MAX - 64 - dirname_len));
+	if (IS_ERR(path_buf)) {
+		err = PTR_ERR(path_buf);
+		pr_err("[check_can_ops]err is %d\n", err);
+		goto out;
+       }
+	
+
+	strcat(path_buf,"/");
+	strcat(path_buf,cur_dir->d_name.name);
+
+	if (!strncmp(path_buf, DATA_MNT_POINT, 5)) {
+		if (check_have_space(cur_dir, path) < 0) {
+			pr_err("[check_can_ops]path_buf  is %s\n", path_buf);
+			err = -ENOSPC;
+			goto out;
+		}
+	}
+
+
+
+
+out:
+	return err;
+}
+
+int hide_reserved_space_for_user(struct kstatfs *stat)
+{
+	int err = 0;
+	long long avail_size;
+	uid_t cur_euid;
+	gid_t cur_egid;
+
+	if (!stat) {
+		err = -EFAULT;
+		goto out;
+	}
+
+	current_euid_egid(&cur_euid, &cur_egid);
+	/*reserved space is visible for root and system*/
+	if(cur_euid <= 1000 || cur_egid <= 1000)
+		goto out;
+
+	avail_size = (long long)stat->f_bavail * (long long)stat->f_bsize;
+	if (avail_size <= g_rsrvd_size) {
+		stat->f_bavail  = 0;
+	}else{
+		stat->f_bavail -= (unsigned long)g_rsrvd_size /(unsigned long)stat->f_bsize;
+	}
+
+out:
+	return err;
+}
+
 const struct inode_operations page_symlink_inode_operations = {
 	.readlink	= generic_readlink,
 	.follow_link	= page_follow_link_light,
@@ -4099,3 +4323,5 @@ EXPORT_SYMBOL(vfs_symlink);
 EXPORT_SYMBOL(vfs_unlink);
 EXPORT_SYMBOL(dentry_unhash);
 EXPORT_SYMBOL(generic_readlink);
+EXPORT_SYMBOL(check_can_ops);
+EXPORT_SYMBOL(hide_reserved_space_for_user);

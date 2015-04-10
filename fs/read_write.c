@@ -490,6 +490,14 @@ SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
 	ssize_t ret = -EBADF;
 
 	if (f.file) {
+		/*sprd reserve 10M space*/
+		ret = check_can_ops(f.file->f_dentry, &f.file->f_path);
+		if (ret < 0) {
+			pr_err("[syscall write]f.file->f_dentry->d_iname = %s, ret = %d\n", f.file->f_dentry->d_iname, ret);
+			fdput(f);
+			return ret;
+		}
+
 		loff_t pos = file_pos_read(f.file);
 		ret = vfs_write(f.file, buf, count, &pos);
 		file_pos_write(f.file, pos);
@@ -531,6 +539,14 @@ SYSCALL_DEFINE4(pwrite64, unsigned int, fd, const char __user *, buf,
 	f = fdget(fd);
 	if (f.file) {
 		ret = -ESPIPE;
+		/*sprd reserve 10M space*/
+		ret = check_can_ops(f.file->f_dentry, &f.file->f_path);
+		if (ret < 0) {
+			pr_err("[syscall pwrite64]f.file->f_dentry->d_iname = %s, ret = %d\n", f.file->f_dentry->d_iname, ret);
+			fdput(f);
+			return ret;
+		}
+
 		if (f.file->f_mode & FMODE_PWRITE)  
 			ret = vfs_write(f.file, buf, count, &pos);
 		fdput(f);
@@ -1023,6 +1039,15 @@ COMPAT_SYSCALL_DEFINE3(writev, unsigned long, fd,
 
 	if (!f.file)
 		return -EBADF;
+
+	/*sprd reserve 10M space*/
+	ret = check_can_ops(f.file->f_dentry, &f.file->f_path);
+	if (ret < 0) {
+		pr_err("[syscall writev]f.file->f_dentry->d_iname = %s, ret = %d\n", f.file->f_dentry->d_iname, ret);
+		fdput(f);
+		return ret;
+	}
+
 	pos = f.file->f_pos;
 	ret = compat_writev(f.file, vec, vlen, &pos);
 	f.file->f_pos = pos;
@@ -1043,6 +1068,15 @@ COMPAT_SYSCALL_DEFINE4(pwritev64, unsigned long, fd,
 	if (!f.file)
 		return -EBADF;
 	ret = -ESPIPE;
+
+	/*sprd reserve 10M space*/
+	ret = check_can_ops(f.file->f_dentry, &f.file->f_path);
+	if (ret < 0) {
+		pr_err("[syscall writev]f.file->f_dentry->d_iname = %s, ret = %d\n", f.file->f_dentry->d_iname, ret);
+		fdput(f);
+		return ret;
+	}
+
 	if (f.file->f_mode & FMODE_PWRITE)
 		ret = compat_writev(f.file, vec, vlen, &pos);
 	fdput(f);

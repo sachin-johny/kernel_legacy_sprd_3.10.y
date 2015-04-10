@@ -22,6 +22,8 @@
 
 #include "blk.h"
 
+#include <linux/namei.h>
+
 static DEFINE_MUTEX(block_class_lock);
 struct kobject *block_depr;
 
@@ -1261,10 +1263,223 @@ static const struct file_operations proc_diskstats_operations = {
 	.release	= seq_release,
 };
 
+
+
+
+
+struct proc_dir_entry *reseved_space_dir;
+
+char reseved_space_emmc_where[1024] = "/dev/block/platform/sprd-sdhci.3/by-name/userdata";
+char reseved_space_nand_where[1024] = "/dev/ubi0_userdata";
+
+
+
+unsigned long g_rsrvd_size = EMMC_DATA_RESERVED_SIZE;
+EXPORT_SYMBOL_GPL(g_rsrvd_size);
+
+
+
+
+EXPORT_SYMBOL_GPL(reseved_space_emmc_where);
+
+EXPORT_SYMBOL_GPL(reseved_space_nand_where);
+
+
+
+
+
+
+
+static ssize_t reseved_size_proc(struct file *file, const char __user *buffer,
+                                            size_t count, loff_t *pos)
+{
+        char *buf;
+		
+
+        if (count < 1)
+              return -EINVAL;
+
+        buf = kmalloc(count, GFP_KERNEL);
+        if (!buf)
+              return -ENOMEM;
+
+        if (copy_from_user(buf, buffer, count)) {
+              kfree(buf);
+              return -EFAULT;
+        }
+
+
+
+		g_rsrvd_size = simple_strtol(buf, NULL, 10);
+
+        kfree(buf);
+
+        return count;
+}
+
+
+static int reseved_space_size_proc_show(struct seq_file *m, void *v)
+{
+
+        seq_printf(m, "%ld\n",g_rsrvd_size);
+	return 0;
+}
+
+
+
+static int reseved_size_open_proc(struct inode *inode, struct file *file)
+{
+	return single_open(file, reseved_space_size_proc_show, PDE_DATA(inode));
+
+}
+
+
+
+
+
+
+
+
+static ssize_t reseved_space_emmc_write_proc_where(struct file *file, const char __user *buffer,
+                                            size_t count, loff_t *pos)
+{
+        char *buf;
+		
+
+        if (count < 1)
+              return -EINVAL;
+
+        buf = kmalloc(count, GFP_KERNEL);
+        if (!buf)
+              return -ENOMEM;
+
+        if (copy_from_user(buf, buffer, count)) {
+              kfree(buf);
+              return -EFAULT;
+        }
+
+        memset(reseved_space_emmc_where,0,sizeof(reseved_space_emmc_where));
+        memcpy(reseved_space_emmc_where,buf,count);
+		
+
+        kfree(buf);
+
+        return count;
+}
+
+
+
+static int reseved_space_emmc_where_proc_show(struct seq_file *m, void *v)
+{
+
+        seq_printf(m, "%s\n",reseved_space_emmc_where);
+	return 0;
+}
+
+
+
+static int reseved_space_emmc_open_proc(struct inode *inode, struct file *file)
+{
+	return single_open(file, reseved_space_emmc_where_proc_show, PDE_DATA(inode));
+
+}
+
+
+
+static ssize_t reseved_space_nand_write_proc_where(struct file *file, const char __user *buffer,
+                                            size_t count, loff_t *pos)
+{
+        char *buf;
+		
+
+        if (count < 1)
+              return -EINVAL;
+
+        buf = kmalloc(count, GFP_KERNEL);
+        if (!buf)
+              return -ENOMEM;
+
+        if (copy_from_user(buf, buffer, count)) {
+              kfree(buf);
+              return -EFAULT;
+        }
+
+        memset(reseved_space_nand_where,0,sizeof(reseved_space_nand_where));
+        memcpy(reseved_space_nand_where,buf,count);
+		
+
+        kfree(buf);
+
+        return count;
+}
+
+
+
+
+
+static int reseved_space_nand_where_proc_show(struct seq_file *m, void *v)
+{
+
+        seq_printf(m, "%s\n",reseved_space_nand_where);
+	return 0;
+}
+
+
+
+static int reseved_space_nand_open_proc(struct inode *inode, struct file *file)
+{
+	return single_open(file, reseved_space_nand_where_proc_show, PDE_DATA(inode));
+
+}
+
+
+
+static const struct file_operations where_emmc_fops = {
+	.open = reseved_space_emmc_open_proc,
+	.read = seq_read,
+	.write = reseved_space_emmc_write_proc_where,
+	.release = single_release,
+};
+
+
+
+
+
+static const struct file_operations where_nand_fops = {
+	.open = reseved_space_nand_open_proc,
+	.read = seq_read,
+	.write = reseved_space_nand_write_proc_where,
+	.release = single_release,
+};
+
+
+
+
+static const struct file_operations reseved_size_fops = {
+	.open = reseved_size_open_proc,
+	.read = seq_read,
+	.write = reseved_size_proc,
+	.release = single_release,
+};
+
+
+
+
 static int __init proc_genhd_init(void)
 {
 	proc_create("diskstats", 0, NULL, &proc_diskstats_operations);
 	proc_create("partitions", 0, NULL, &proc_partitions_operations);
+
+	reseved_space_dir = proc_mkdir("reseved_space", NULL);
+
+	proc_create("where_emmc", S_IRUGO | S_IWUSR | S_IWGRP, reseved_space_dir,&where_emmc_fops);
+
+	proc_create("where_nand", S_IRUGO | S_IWUSR | S_IWGRP, reseved_space_dir,&where_nand_fops);
+
+	
+	proc_create("reseved_size", S_IRUGO | S_IWUSR | S_IWGRP, reseved_space_dir,&reseved_size_fops);
+
+	
 	return 0;
 }
 module_init(proc_genhd_init);

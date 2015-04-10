@@ -793,6 +793,11 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 		return ERR_CAST(root);
 	}
 
+	/* differentiate nand and emmc*/
+	if(root->d_sb->s_mtd){
+		g_rsrvd_size = NAND_DATA_RESERVED_SIZE;
+	}
+
 	mnt->mnt.mnt_root = root;
 	mnt->mnt.mnt_sb = root->d_sb;
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;

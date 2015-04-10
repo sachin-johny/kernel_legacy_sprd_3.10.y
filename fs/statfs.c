@@ -77,13 +77,20 @@ EXPORT_SYMBOL(vfs_statfs);
 int user_statfs(const char __user *pathname, struct kstatfs *st)
 {
 	struct path path;
-	int error;
+	int error, err;
 	unsigned int lookup_flags = LOOKUP_FOLLOW|LOOKUP_AUTOMOUNT;
 retry:
 	error = user_path_at(AT_FDCWD, pathname, lookup_flags, &path);
 	if (!error) {
 		error = vfs_statfs(&path, st);
 		path_put(&path);
+		/*sprd: reserved space is invisible for user*/
+		err = hide_reserved_space_for_user(st);
+		if (err) {
+			pr_err("[user_statfs] error = %d\n", err);
+			return err;
+		}
+
 		if (retry_estale(error, lookup_flags)) {
 			lookup_flags |= LOOKUP_REVAL;
 			goto retry;
@@ -95,10 +102,16 @@ retry:
 int fd_statfs(int fd, struct kstatfs *st)
 {
 	struct fd f = fdget_raw(fd);
-	int error = -EBADF;
+	int error = -EBADF, err;
 	if (f.file) {
 		error = vfs_statfs(&f.file->f_path, st);
 		fdput(f);
+		/*sprd: reserved space is invisible for user*/
+		err = hide_reserved_space_for_user(st);
+		if (err) {
+			pr_err("[fd_statfs] error = %d\n", err);
+			return err;
+		}
 	}
 	return error;
 }

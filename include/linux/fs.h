@@ -2485,6 +2485,9 @@ extern int __page_symlink(struct inode *inode, const char *symname, int len,
 extern int page_symlink(struct inode *inode, const char *symname, int len);
 extern const struct inode_operations page_symlink_inode_operations;
 extern int generic_readlink(struct dentry *, char __user *, int);
+/*reserved size on vfs layer*/
+extern int check_can_ops(struct dentry * cur_dir, struct path * path);
+extern int hide_reserved_space_for_user(struct kstatfs *stat);
 extern void generic_fillattr(struct inode *, struct kstat *);
 extern int vfs_getattr(struct path *, struct kstat *);
 void __inode_add_bytes(struct inode *inode, loff_t bytes);

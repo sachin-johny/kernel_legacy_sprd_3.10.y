@@ -56,6 +56,13 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
 #define LOOKUP_ROOT		0x2000
 #define LOOKUP_EMPTY		0x4000
 
+/*
+ * reserve space size
+ */
+#define EMMC_DATA_RESERVED_SIZE (10*1024*1024)
+#define NAND_DATA_RESERVED_SIZE (10*1024*1024)
+extern unsigned long g_rsrvd_size;
+
 extern int user_path_at(int, const char __user *, unsigned, struct path *);
 extern int user_path_at_empty(int, const char __user *, unsigned, struct path *, int *empty);
 
