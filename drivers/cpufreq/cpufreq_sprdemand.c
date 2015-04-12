@@ -1993,7 +1993,11 @@ static int get_vddarm_updata_dt_data(struct device_node *np,
 		printk(KERN_ERR "fail to get vddarm_nr\n");
 		goto error;
 	}
-	of_property_read_u32_array(np, "vddarm_nr", vddarm_nr, vddarm_nr[0] + 1);
+	ret = of_property_read_u32_array(np, "vddarm_nr", vddarm_nr, vddarm_nr[0] + 1);
+	if (ret){
+		printk(KERN_ERR "fail to get all vddarm_nr data.\n");
+		goto error;
+	}
 	printk("%s vddarm_nr:<", __func__);
 	for (i = 0; i < vddarm_nr[0]; ++i){
 		printk("%d ", vddarm_nr[i + 1]);
