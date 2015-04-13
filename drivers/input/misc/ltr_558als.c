@@ -74,6 +74,7 @@ static u8 l_gainrange = ALS_RANGE2_64K;
 static int ps_threshold = 0;
 static struct i2c_client *this_client = NULL;
 static int LTR_PLS_MODE = 0;
+static struct wake_lock psensor_timeout_wakelock;
 
 #ifdef LTR558_ADAPTIVE
 #define DEBOUNCE 10
@@ -655,7 +656,8 @@ static void ltr558_work(struct work_struct *work)
 static irqreturn_t ltr558_irq_handler(int irq, void *dev_id)
 {
         ltr558_t *pls = (ltr558_t *) dev_id;
-
+        /*add 1s time out lock in plsensor interrupt*/
+        wake_lock_timeout(&psensor_timeout_wakelock, msecs_to_jiffies(1000));
         disable_irq_nosync(pls->client->irq);
         queue_work(pls->ltr_work_queue, &pls->work);
         return IRQ_HANDLED;
@@ -961,6 +963,8 @@ static int ltr558_probe(struct i2c_client *client, const struct i2c_device_id *i
 		client->dev.platform_data = pdata;
 	}
 #endif
+
+        wake_lock_init(&psensor_timeout_wakelock, WAKE_LOCK_SUSPEND, "psensor timeout wakelock");
         ret = gpio_request(pdata->irq_gpio_number, LTR558_PLS_IRQ_PIN);
         if(ret) {
                 PRINT_ERR("gpio_request failed!\n");
@@ -1118,6 +1122,7 @@ static int ltr558_remove(struct i2c_client *client)
         unregister_early_suspend(&ltr_558als->ltr_early_suspend);
 #endif
 
+        wake_lock_destroy(&psensor_timeout_wakelock);
         flush_workqueue(ltr_558als->ltr_work_queue);
         destroy_workqueue(ltr_558als->ltr_work_queue);
         ltr_558als->ltr_work_queue = NULL;
