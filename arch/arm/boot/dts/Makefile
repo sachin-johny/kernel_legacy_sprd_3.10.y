@@ -237,6 +237,7 @@ dtb-$(CONFIG_MACH_SP9630EA) += sprd-scx35l_sp9630ea.dtb
 endif
 dtb-$(CONFIG_MACH_SP9630EA3MN) += sprd-scx35l_sp9630ea3mn.dtb
 dtb-$(CONFIG_MACH_SP9630EA4MN) += sprd-scx35l_sp9630ea4mn.dtb
+dtb-$(CONFIG_MACH_SP9830AEA_5M_H100) += sprd-scx35l_sp9830aea_5m_h100.dtb
 dtb-$(CONFIG_MACH_SP9630EA_3592M_3MOD) += sprd-scx35l_sp9630ea_3592m_3mod.dtb
 dtb-$(CONFIG_MACH_COREPRIMELITE) += sprd-scx35l_coreprimelite.dtb
 dtb-$(CONFIG_MACH_COREPRIMELITE_MARLIN) += sprd-scx35l_coreprimelite_marlin.dtb
