@@ -237,9 +237,10 @@ static u64 get_idle_time(int cpu)
 
 	if (idle_time == -1ULL)
 		idle = kcpustat_cpu(cpu).cpustat[CPUTIME_IDLE];
-	else
+#if 0
+    else
 		idle = usecs_to_cputime64(idle_time);
-
+#endif
 	//FIXME: this idle function has bug on our shark platform:
 	//       not monotone increasing
 	if(DEBUG_PRINT) printk("acedebug: get_idle_time: cpu=%d, idle=%llu\n", cpu, idle);
@@ -260,9 +261,10 @@ static u64 get_iowait_time(int cpu)
 
 	if (iowait_time == -1ULL)
 		iowait = kcpustat_cpu(cpu).cpustat[CPUTIME_IOWAIT];
-	else
+#if 0
+    else
 		iowait = usecs_to_cputime64(iowait_time);
-
+#endif
 	return iowait;
 }
 #endif
