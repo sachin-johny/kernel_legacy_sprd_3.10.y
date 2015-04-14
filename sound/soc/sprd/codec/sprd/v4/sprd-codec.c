@@ -442,6 +442,31 @@ struct sprd_codec_priv {
     int sprd_dacspkl_set;
     struct mutex sprd_dacspkl_mutex;
 };
+const u32 low_power_chip_arr[] = {
+	0x2723, AUDIO_2723_VER_E,
+	0x2723, AUDIO_2723_VER_T
+};
+
+static int is_low_power_support()
+{
+	u32 chip_id = 0;
+	int ver_id = 0;
+	int i = 0, j = 0;
+
+	chip_id = sci_get_ana_chip_id() >> 16;
+	ver_id = sci_get_ana_chip_ver();
+
+	pr_err("%s, chip_id=0x%x, ver_id=0x%x\n", __func__, chip_id, ver_id);
+
+	while (i < ARRAY_SIZE(low_power_chip_arr)) {
+		if (low_power_chip_arr[i] == (u32)chip_id
+				&& low_power_chip_arr[i + 1] == ver_id)
+			return 1;
+		i += 2;
+	}
+
+	return 0;
+}
 
 static int sprd_codec_power_get(struct device *dev, struct regulator **regu,
 				const char *id)
@@ -700,6 +725,12 @@ static int sprd_codec_pga_dacl_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC10;
+	if (is_low_power_support()) {
+		if (pgaval > 0) {
+			pgaval = pgaval >= 6 ? pgaval : 6;
+			pgaval -= 5;
+		}
+	}
 	mask = DACL_G_MASK << DACL_G;
 	val = (pgaval << DACL_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
@@ -709,6 +740,12 @@ static int sprd_codec_pga_dacr_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC10;
+	if (is_low_power_support()) {
+		if (pgaval > 0) {
+			pgaval = pgaval >= 6 ? pgaval : 6;
+			pgaval -= 5;
+		}
+	}
 	mask = DACR_G_MASK << DACR_G;
 	val = (pgaval << DACR_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
@@ -1485,7 +1522,10 @@ static inline void sprd_codec_hp_pa_lpw(struct snd_soc_codec *codec, int lpw)
 	}
 	*/
 	mask = CG_LPW_MASK << CG_LPW;
-	val = (lpw << CG_LPW) & mask;
+	if (is_low_power_support())
+		val = (0x2 << CG_LPW) & mask;
+	else
+		val = (lpw << CG_LPW) & mask;
 	snd_soc_update_bits(codec, SOC_REG(ANA_CDC3), mask, val);
 }
 
@@ -1663,6 +1703,9 @@ static inline void sprd_codec_hp_pa_cgcal_en(struct snd_soc_codec *codec,
 	*/
 	mask = BIT(CG_HPCAL_EN);
 	val = on ? mask : 0;
+	if (is_low_power_support())
+		if (val == 0)
+			val = mask;
 	snd_soc_update_bits(codec, SOC_REG(ANA_CDC3), mask, val);
 }
 
@@ -2125,11 +2168,28 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 static int sprd_codec_analog_open(struct snd_soc_codec *codec)
 {
 	int ret = 0;
+	uint32_t val = 0;
+	uint32_t mask = 0;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 	sprd_codec_sample_rate_setting(sprd_codec);
 
+	if (is_low_power_support()) {
+		sp_asoc_pr_info("%s get here, true\n", __func__);
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC16), (ADC_PGA_IBIAS_CTL_MASK << ADC_PGA_IBIAS_CTL_OFFSET), (ADC_PGA_IBIAS_CTL_05 << ADC_PGA_IBIAS_CTL_OFFSET));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC16), (DAC_FILTER_IBIS_CTL_MASK << DAC_FILTER_IBIS_CTL_OFFSET), (DAC_FILTER_IBIS_CTL_3_PER_7 << DAC_FILTER_IBIS_CTL_OFFSET));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC16), (RCV_IBIS_CTL_MASK << RCV_IBIS_CTL_OFFSET), (RCV_IBIS_CTL_065 << RCV_IBIS_CTL_OFFSET));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC16), (HP_CLASSAB_IBIS_CTL_MASK << HP_CLASSAB_IBIS_CTL_OFFSET), (HP_CLASSAB_IBIS_CTL_3_PER_7 << HP_CLASSAB_IBIS_CTL_OFFSET));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC16), BIT(AUDIO_POP_CHGR_PD), BIT(AUDIO_POP_CHGR_PD));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC16), BIT(AUDIO_POP_SOFTCHG_EN), BIT(AUDIO_POP_SOFTCHG_EN));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC3), BIT(CG_HPCAL_EN), BIT(CG_HPCAL_EN));
+		/* B Setting */
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC1), (ADC_PGAL_BYP_SEL_MASK << ADCPGAL_BYP), (ADC_PGAL_BYP_SEL_PGAL1_2_ADCL << ADCPGAL_BYP));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC1), (ADC_PGAR_BYP_SEL_MASK << ADCPGAR_BYP), (ADC_PGAR_BYP_SEL_PGAR1_2_ADCR << ADCPGAR_BYP));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC10), (DACL_G_MASK << DACL_G), (DACL_G_MINUS_2_5DB << DACL_G));
+		snd_soc_update_bits(codec, SOC_REG(ANA_CDC10), (DACR_G_MASK << DACR_G), (DACR_G_MINUS_2_5DB << DACR_G));
+	}
 	/* SC7710/SC8830 ask from ASIC to set initial value */
 	snd_soc_update_bits(codec, SOC_REG(ANA_PMU1), BIT(SEL_VCMI),
 			    BIT(SEL_VCMI));
@@ -2628,16 +2688,30 @@ static int ear_switch_event(struct snd_soc_dapm_widget *w,
 
 static int adcpgal_set(struct snd_soc_codec *codec, int on)
 {
-	int mask = ADCPGAL_EN_MASK << ADCPGAL_EN;
-	return snd_soc_update_bits(codec, SOC_REG(ANA_CDC1), mask,
-				   on ? mask : 0);
+	if (is_low_power_support()) {
+		int mask = ADCPGAL_EN_MASK << ADCPGAL_EN;
+		int value = 0x2 << ADCPGAL_EN;
+		return snd_soc_update_bits(codec, SOC_REG(ANA_CDC1), mask,
+					on ? value : 0);
+	} else {
+		int mask = ADCPGAL_EN_MASK << ADCPGAL_EN;
+		return snd_soc_update_bits(codec, SOC_REG(ANA_CDC1), mask,
+					   on ? mask : 0);
+	}
 }
 
 static int adcpgar_set(struct snd_soc_codec *codec, int on)
 {
-	int mask = ADCPGAR_EN_MASK << ADCPGAR_EN;
-	return snd_soc_update_bits(codec, SOC_REG(ANA_CDC1), mask,
-				   on ? mask : 0);
+	if (is_low_power_support()) {
+		int mask = ADCPGAR_EN_MASK << ADCPGAR_EN;
+		int value = 0x2 << ADCPGAR_EN;
+		return snd_soc_update_bits(codec, SOC_REG(ANA_CDC1), mask,
+					   on ? value : 0);
+	} else {
+		int mask = ADCPGAR_EN_MASK << ADCPGAR_EN;
+		return snd_soc_update_bits(codec, SOC_REG(ANA_CDC1), mask,
+					   on ? mask : 0);
+	}
 }
 
 static int adc_switch_event(struct snd_soc_dapm_widget *w,
@@ -2741,7 +2815,10 @@ static int adcpgar_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		adcpgar_byp_set(codec, 2);
 		sprd_codec_wait(100);
-		adcpgar_byp_set(codec, 0);
+		if (is_low_power_support())
+			adcpgar_byp_set(codec, 1);
+		else
+			adcpgar_byp_set(codec, 0);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		break;

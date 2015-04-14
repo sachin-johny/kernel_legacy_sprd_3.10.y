@@ -1180,6 +1180,12 @@ out:
 #ifdef ADPGAR_BYP_SELECT
 static void adpgar_byp_select_func(struct work_struct *work)
 {
+	if ((0x2723 == (sci_get_ana_chip_id() >> 16))
+			&& (SC2723ES == sci_get_ana_chip_ver()
+				|| SC2723TS == sci_get_ana_chip_ver())) {
+		return;
+	}
+
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CDC1), AUDIO_ADPGAR_BYP_HEADMIC_2_ADCR, AUDIO_ADPGAR_BYP_MASK, AUDIO_ADPGAR_BYP_SHIFT);
         PRINT_INFO("ANA_CDC1 = 0x%08X\n", sci_adi_read(HEADMIC_DETECT_REG(ANA_CDC1)));
         msleep(100);
