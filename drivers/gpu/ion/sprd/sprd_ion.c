@@ -428,6 +428,7 @@ int sprd_ion_probe(struct platform_device *pdev)
 
 	idev = ion_device_create(&sprd_heap_ioctl);
 	if (IS_ERR_OR_NULL(idev)) {
+		pr_err("%s: create ion_device failed\n", __func__);
 		kfree(heaps);
 		return PTR_ERR(idev);
 	}
@@ -439,12 +440,13 @@ int sprd_ion_probe(struct platform_device *pdev)
 		heaps[i] = __ion_heap_create(heap_data, &pdev->dev);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			err = PTR_ERR(heaps[i]);
+			pr_err("%s: create ion_heap failed\n", __func__);
 			goto error_out;
 		}
 		ion_device_add_heap(idev, heaps[i]);
 	}
 	platform_set_drvdata(pdev, idev);
-	
+
 	err = sprd_create_timeline(&sprd_fence);
 	if (err != 0)
 	{
@@ -459,6 +461,7 @@ error_out:
 			ion_heap_destroy(heaps[i]);
 	}
 	kfree(heaps);
+	pr_err("%s: return from error_out\n", __func__);
 	return err;
 }
 

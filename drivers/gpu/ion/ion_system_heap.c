@@ -142,8 +142,8 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 				     unsigned long flags)
 {
 	struct ion_system_heap *sys_heap = container_of(heap,
-							struct ion_system_heap,
-							heap);
+		struct ion_system_heap,
+		heap);
 	struct sg_table *table;
 	struct scatterlist *sg;
 	int ret;
@@ -156,8 +156,10 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	INIT_LIST_HEAD(&pages);
 	while (size_remaining > 0) {
 		info = alloc_largest_available(sys_heap, buffer, size_remaining, max_order);
-		if (!info)
+		if (!info) {
+			pr_err("%s: allocate page_info failed!\n", __func__);
 			goto err;
+		}
 		list_add_tail(&info->list, &pages);
 		size_remaining -= (1 << info->order) * PAGE_SIZE;
 		max_order = info->order;
@@ -165,12 +167,16 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	}
 
 	table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
-	if (!table)
+	if (!table) {
+		pr_err("%s: kmalloc table failed\n", __func__);
 		goto err;
+	}
 
 	ret = sg_alloc_table(table, i, GFP_KERNEL);
-	if (ret)
+	if (ret) {
+		pr_err("%s: sg_alloc_table failed ret = %d\n", __func__, ret);
 		goto err1;
+	}
 
 	sg = table->sgl;
 	list_for_each_entry_safe(info, tmp_info, &pages, list) {
@@ -184,12 +190,15 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	buffer->priv_virt = table;
 	return 0;
 err1:
+	pr_err("%s: return from err1\n", __func__);
 	kfree(table);
 err:
 	list_for_each_entry_safe(info, tmp_info, &pages, list) {
 		free_buffer_page(sys_heap, buffer, info->page, info->order);
 		kfree(info);
 	}
+	pr_err("%s return from err size=%lu align=%lu flags=0x%lx\n",
+		__func__, size, align, flags);
 	return -ENOMEM;
 }
 

@@ -182,14 +182,16 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	int i, ret;
 
 	buffer = kzalloc(sizeof(struct ion_buffer), GFP_KERNEL);
-	if (!buffer)
+	if (!buffer) {
+		pr_err("%s: kzalloc allocate buffer failed return ENOMEM\n", __func__);
 		return ERR_PTR(-ENOMEM);
+	}
 
 	buffer->heap = heap;
 	buffer->flags = flags;
 	kref_init(&buffer->ref);
 
-    if (heap->flags & ION_HEAP_FLAG_DEFER_FREE) {
+	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE) {
 		bool cached = ion_buffer_cached(buffer);
 		ion_heap_freelist_drain(heap, cached, len);
 	}
@@ -197,14 +199,18 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	ret = heap->ops->allocate(heap, buffer, len, align, flags);
 
 	if (ret) {
-		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE))
+		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE)) {
+			pr_err("%s: ret = %d and heap_flags=%lx don't match!\n",
+				__func__, ret, heap->flags);
 			goto err2;
-
+		}
 		ion_heap_freelist_drain(heap, -1,0);
 		ret = heap->ops->allocate(heap, buffer, len, align,
-					  flags);
-		if (ret)
+			flags);
+		if (ret) {
+			pr_err("%s: ret = %d and allocate failed\n", __func__, ret);
 			goto err2;
+		}
 	}
 
 	buffer->dev = dev;
@@ -227,6 +233,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 
 		buffer->pages = vmalloc(sizeof(struct page *) * num_pages);
 		if (!buffer->pages) {
+			pr_err("%s: buffer->pages is NULL goto err1\n", __func__);
 			ret = -ENOMEM;
 			goto err1;
 		}
@@ -265,6 +272,7 @@ err1:
 		vfree(buffer->pages);
 err2:
 	kfree(buffer);
+	pr_err("%s: len=%lu align=%lu flags=0x%lx\n", __func__, len, align, flags);
 	return ERR_PTR(ret);
 }
 
@@ -468,8 +476,8 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	int ret;
 	size_t size;
 
-	pr_debug("%s: len %d align %d heap_id_mask %u flags %x\n", __func__,
-		 len, align, heap_id_mask, flags);
+	pr_err("%s: len %d align %d heap_id_mask %u flags %x\n", __func__,
+		len, align, heap_id_mask, flags);
 	/*
 	 * traverse the list of heaps available in this system in priority
 	 * order.  If the heap type is supported by the client, and matches the
@@ -482,8 +490,10 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	len = PAGE_ALIGN(len);
 
 	/*one allocation size should < 32M bytes */
-	if (len > (1 << 25))
+	if (len > (1 << 25)) {
+		pr_err("%s: one allocation size should < 32M bytes\n", __func__);
 		return ERR_PTR(-EINVAL);
+	}
 
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
@@ -498,8 +508,10 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			break;
 
 		buffer = ion_buffer_create(heap, dev, len, align, flags);
-		if (!IS_ERR(buffer))
+		if (!IS_ERR(buffer)) {
+			pr_err("%s: buffer is NULL break here!\n", __func__);
 			break;
+		}
 	}
 	up_read(&dev->lock);
 

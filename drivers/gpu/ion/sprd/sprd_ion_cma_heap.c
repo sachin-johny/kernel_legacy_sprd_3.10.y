@@ -67,13 +67,15 @@ ion_phys_addr_t ion_cma_allocate(struct ion_heap *heap,
 			return ION_CMA_ALLOCATE_FAIL;
 		}
 		phys = page_to_phys(page);
-		printk("ion: malloc from cma mem: size=%08lx,phy addr=%08lx, time=%dms\n", size, phys, end-start);
+		pr_err("ion: malloc from cma mem: size=%08lx,phy addr=%08lx, time=%dms\n", size, phys, end-start);
 		return phys;
 	} else {
 		unsigned long offset = gen_pool_alloc(cma_heap->pool, size);
-		pr_debug("ion: malloc from reserved mem: size=%08lx, pool=%p, offset=%08lx \n", size, cma_heap->pool, offset);
-		if (!offset)
+		pr_err("ion: malloc from reserved mem: size=%08lx, pool=%p, offset=%08lx \n", size, cma_heap->pool, offset);
+		if (!offset) {
+			pr_err("%s: gen_pool_alloc failed\n", __func__);
 			return ION_CARVEOUT_ALLOCATE_FAIL;
+		}
 		return offset;
 	}
 }
@@ -118,7 +120,7 @@ static int ion_cma_heap_allocate(struct ion_heap *heap,
 				      unsigned long flags)
 {
 	buffer->priv_phys = ion_cma_allocate(heap, size, align);
-	pr_debug("pgprot_noncached flags 0x%lx\n",flags);
+	pr_err("pgprot_noncached flags 0x%lx\n", flags);
 	if(flags&(1<<31))
 		buffer->flags |= (1<<31);
 	else
