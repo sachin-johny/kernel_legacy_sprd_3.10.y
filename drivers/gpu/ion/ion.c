@@ -270,9 +270,11 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 err1:
 	if (buffer->pages)
 		vfree(buffer->pages);
+	pr_err("%s: err1 return len=%lu align=%lu flags=0x%lx\n", __func__, len, align, flags);
+
 err2:
 	kfree(buffer);
-	pr_err("%s: len=%lu align=%lu flags=0x%lx\n", __func__, len, align, flags);
+	pr_err("%s: err2 return len=%lu align=%lu flags=0x%lx\n", __func__, len, align, flags);
 	return ERR_PTR(ret);
 }
 
@@ -476,7 +478,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	int ret;
 	size_t size;
 
-	pr_err("%s: len %d align %d heap_id_mask %u flags %x\n", __func__,
+	pr_debug("%s: len %d align %d heap_id_mask %u flags %x\n", __func__,
 		len, align, heap_id_mask, flags);
 	/*
 	 * traverse the list of heaps available in this system in priority
@@ -508,16 +510,18 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			break;
 
 		buffer = ion_buffer_create(heap, dev, len, align, flags);
-		if (!IS_ERR(buffer)) {
-			pr_err("%s: buffer is NULL break here!\n", __func__);
+		if (!IS_ERR(buffer))
 			break;
-		}
+
 	}
 	up_read(&dev->lock);
 
 	if (buffer == NULL)
 	{
 		pr_err("%s: buffer is NULL!\n",__func__);
+		pr_err("%s: len %d align %d heap_id_mask %u flags %x\n", __func__,
+		len, align, heap_id_mask, flags);
+
 		ion_debug_heap_show_err(heap);
 		return ERR_PTR(-ENODEV);
 	}
