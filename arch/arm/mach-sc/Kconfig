@@ -431,6 +431,28 @@ config MACH_SP9630EA_4MOD
 	help
 	SPX35L board based on shark-l serial.
 
+config MACH_SP9830I
+	bool "sp9830i chip"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX35L
+	default n
+	select COMMON_CLK if OF
+	select CLKSRC_OF if OF
+	help
+	  SPX35L board based on shark-l serial.
+
+config MACH_SP9830IEB_5M_H100
+	bool "sp9830ieb_5m_h100 Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX35L
+	default n
+	select COMMON_CLK if OF
+	select CLKSRC_OF if OF
+	help
+	  SPX35L board based on shark-l serial.
+
 config MACH_SP6815GA
 	bool "sp6815ga Phone Board"
 	depends on ARCH_SC

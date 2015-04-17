@@ -140,6 +140,11 @@
 #define BIT_ADC_EB                                        ( BIT(0) )
 
 /* bits definitions for register REG_AON_APB_APB_EB1 */
+
+#if defined(CONFIG_MACH_SP9830I)
+#define BIT_CODEC_EB                                      (BIT(28))
+#endif
+
 #define BIT_ORP_JTAG_EB                                   ( BIT(27) )
 #define BIT_CA5_TS0_EB                                    ( BIT(26) )
 #define BIT_DEF_EB                                        ( BIT(25) )

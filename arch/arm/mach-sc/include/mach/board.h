@@ -130,7 +130,7 @@
 #include "__board-sp9630ea4mn.h"
 #endif
 
-#ifdef CONFIG_MACH_SP9830AEA_5M_H100
+#if defined(CONFIG_MACH_SP9830AEA_5M_H100) || defined(CONFIG_MACH_SP9830IEB_5M_H100)
 #include "__board-sp9830aea_5m_h100.h"
 #endif
 
@@ -284,7 +284,7 @@
 	((CONFIG_PHYS_OFFSET & (~(SZ_512M - 1))) + SZ_512M - SPRD_ION_MEM_SIZE)
 #endif
 #else
-#if defined(CONFIG_MACH_SP9830AEA_5M_H100)
+#if defined(CONFIG_MACH_SP9830AEA_5M_H100) || defined(CONFIG_MACH_SP9830IEB_5M_H100)
 #define SPRD_ION_MEM_BASE	\
 	((CONFIG_PHYS_OFFSET & (~(SZ_1G - 1))) + SZ_1G - SPRD_ION_MEM_SIZE)
 #else

@@ -489,6 +489,19 @@
 #define SPRD_MEMNAND_CACHE_PHYS		(0X97200000+0x6a00000)
 #define SPRD_MEMNAND_CACHE_SIZE		(0x2400000)
 
+#if defined(CONFIG_MACH_SP9830I) || defined(CONFIG_ARCH_SCX30G2)
+#define SPRD_VPP_BASE                           SCI_IOMAP(0x451000)
+#define SPRD_VPP_PHYS                           0X61000000
+#define SPRD_VPP_SIZE                           (SZ_16K)
+#define SPRD_CODA7L_BASE                        SCI_IOMAP(0x455000)
+#define SPRD_CODA7L_PHYS                        0X62100000
+#define SPRD_CODA7L_SIZE                        (SZ_16K)
+#define SPRD_CODECAHB_BASE                      SCI_IOMAP(0x459000)
+#define SPRD_CODECAHB_PHYS                      0X62000000
+#define SPRD_CODECAHB_SIZE                      (SZ_4K)
+#define REGS_CODEC_AHB_BASE			SPRD_CODECAHB_BASE
+#endif
+
 #define CORE_GIC_CPU_VA			(SPRD_CORE_BASE + 0x2000)
 #define CORE_GIC_DIS_VA			(SPRD_CORE_BASE + 0x1000)
 

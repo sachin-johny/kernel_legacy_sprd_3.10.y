@@ -96,7 +96,9 @@
 #include "./chip_x35l/__regs_mm_clk.h"
 #include "./chip_x35l/__regs_pmu_apb_rf.h"
 #include "./chip_x35l/__regs_pub_apb.h"
-
+#if defined(CONFIG_MACH_SP9830I)
+#include "./chip_x35l/__regs_codec_ahb.h"
+#endif
 #elif defined(CONFIG_ARCH_SCX35)
 
 #if defined(CONFIG_ADIE_SC2713S)

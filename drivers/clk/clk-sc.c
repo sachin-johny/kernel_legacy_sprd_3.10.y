@@ -57,8 +57,9 @@ struct clk_sprd {
 #define in_range(b, first, len)	((b) >= (first) && (b) <= (first) + (len) - 1)
 #define to_range(b, first, base) ( (b) - (first) + (base) )
 
-static inline u32 cfg_reg_p2v(const u32 regp)
+static inline unsigned long cfg_reg_p2v(const u32 regp)
 {
+//	return SPRD_DEV_P2V(regp);
 	u32 regv = 0;
 
 	if (0) {
@@ -82,7 +83,13 @@ static inline u32 cfg_reg_p2v(const u32 regp)
 		regv = to_range(regp, SPRD_APBREG_PHYS, SPRD_APBREG_BASE);
 	} else if (in_range(regp, SPRD_APBCKG_PHYS, SPRD_APBCKG_SIZE)) {
 		regv = to_range(regp, SPRD_APBCKG_PHYS, SPRD_APBCKG_BASE);
-	} else {
+	}
+#if defined(CONFIG_ARCH_SCX30G2) ||  defined(CONFIG_MACH_SP9830I)
+        else if (in_range(regp, SPRD_CODECAHB_PHYS, SPRD_CODECAHB_SIZE)) {
+                regv = to_range(regp, SPRD_CODECAHB_PHYS, SPRD_CODECAHB_BASE);
+        }
+#endif
+	else {
 		WARN(1, "regp %08x\n", regp);
 	}
 
@@ -110,10 +117,10 @@ static inline void __glbreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
 	__arch_default_lock(HWLOCK_GLB, &flags);
 
 	if (is_set)
-		__raw_writel(msk, (void *)((u32) (reg) + 0x1000));
+		__raw_writel(msk, (void *)((unsigned long) (reg) + 0x1000));
 	else
 	{
-		__raw_writel(msk, (void *)((u32) (reg) + 0x2000));
+		__raw_writel(msk, (void *)((unsigned long) (reg) + 0x2000));
 	}
 	__arch_default_unlock(HWLOCK_GLB, &flags);
 }
@@ -150,17 +157,79 @@ static int sprd_clk_is_prepared(struct clk_hw *hw)
 	return set ^ ret;
 }
 
+#define __SPRD_MM_TIMEOUT            (3 * 1000)
+
+/* FIXME: sharkls no chip macro */
+#if defined(CONFIG_MACH_SP9830I) || defined(CONFIG_ARCH_SCX30G2)
+static int sprd_clk_coda7_is_ready(void)
+{
+	u32 power_state1, power_state2, power_state3;
+	unsigned long timeout = jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
+
+	do {
+		cpu_relax();
+		power_state1 =
+			__raw_readl((void *)REG_CODEC_AHB_CODA7_STAT) & BIT_CODA7_RUN;
+		power_state2 =
+			__raw_readl((void *)REG_CODEC_AHB_CODA7_STAT) & BIT_CODA7_RUN;
+		power_state3 =
+			__raw_readl((void *)REG_CODEC_AHB_CODA7_STAT) & BIT_CODA7_RUN;
+		BUG_ON(time_after(jiffies, timeout));
+	} while (power_state1 != power_state2 || power_state2 != power_state3);
+
+	if (!power_state1)
+		return 1;
+
+	return 0;
+}
+#else
+static int sprd_clk_coda7_is_ready(void)
+{
+	return 1;
+}
+#endif
+
 static int sprd_clk_enable(struct clk_hw *hw)
 {
+	unsigned long flags = 0;
 	struct clk_sprd *c = to_clk_sprd(hw);
-	__glbreg_set(hw, c->enb.reg, (u32) c->enb.msk);
+
+	if (!strcmp(__clk_get_name(hw->clk), "clk_coda7_axi") ||
+			!strcmp(__clk_get_name(hw->clk), "clk_coda7_cc") ||
+			!strcmp(__clk_get_name(hw->clk), "clk_coda7_apb")) {
+		__arch_default_lock(HWLOCK_GLB, &flags);
+		if (!strcmp(__clk_get_name(hw->clk), "clk_coda7_apb")) {
+			__raw_writel(__raw_readl(c->enb.reg) & (~((u32)c->enb.msk)), c->enb.reg);
+		} else {
+			__raw_writel(__raw_readl(c->enb.reg) | (u32)c->enb.msk, c->enb.reg);
+		}
+		__arch_default_unlock(HWLOCK_GLB, &flags);
+		//BUG_ON(!sprd_clk_coda7_is_ready());
+	} else {
+		__glbreg_set(hw, c->enb.reg, (u32) c->enb.msk);
+	}
+
 	return 0;
 }
 
 static void sprd_clk_disable(struct clk_hw *hw)
 {
+	unsigned long flags = 0;
 	struct clk_sprd *c = to_clk_sprd(hw);
-	__glbreg_clr(hw, c->enb.reg, (u32) c->enb.msk);
+
+	if (!strcmp(__clk_get_name(hw->clk), "clk_coda7_axi") ||
+			!strcmp(__clk_get_name(hw->clk), "clk_coda7_cc") ||
+			!strcmp(__clk_get_name(hw->clk), "clk_coda7_apb")) {
+		__arch_default_lock(HWLOCK_GLB, &flags);
+		if (!strcmp(__clk_get_name(hw->clk), "clk_coda7_apb")) {
+			__raw_writel(__raw_readl(c->enb.reg) | (u32)c->enb.msk, c->enb.reg);
+		} else {
+			__raw_writel(__raw_readl(c->enb.reg) & (~((u32)c->enb.msk)), c->enb.reg);
+		}
+		__arch_default_unlock(HWLOCK_GLB, &flags);
+	} else {
+		__glbreg_clr(hw, c->enb.reg, (u32) c->enb.msk);
+	}
 }
 
 static int sprd_clk_is_enable(struct clk_hw *hw)
@@ -486,7 +555,6 @@ static inline void __mmreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
 
 #define __mmreg_set(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 1)
 #define __mmreg_clr(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 0)
-#define __SPRD_MM_TIMEOUT		(3 * 1000)
 static int sprd_mm_domain_state(struct clk_hw *hw)
 {
 	/* FIXME: rtc domain */
@@ -528,8 +596,12 @@ static int sprd_mm_domain_is_shutdown(struct clk_hw *hw)
 #endif
 }
 
-/* FIXME: mm domain soft-retention */
+/* FIXME: mm domain soft-retention,sharkls support clk_vpp */
+#if defined(CONFIG_MACH_SP9830IEA_5M_H100) || defined(CONFIG_ARCH_SCX30G2)
+static u32 saved_mm_ckg[11];
+#else
 static u32 saved_mm_ckg[10];
+#endif
 static void sprd_mm_domain_save(struct clk_hw *hw)
 {
 #ifdef CONFIG_ARCH_SCX35
@@ -1052,7 +1124,7 @@ static void __init of_sprd_gate_clk_setup(struct device_node *node)
 	 *  enable the clock.  Setting this flag does the opposite: setting the bit
 	 *  disable the clock and clearing it enables the clock
 	 */
-	if ((u32) c->d.pre.reg & 1) {
+	if ((unsigned long) c->d.pre.reg & 1) {
 		*(u32 *) & c->d.pre.reg &= ~3;
 		c->flags |= CLK_GATE_SET_TO_DISABLE;
 	}
@@ -1077,6 +1149,7 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 {
 	struct clk_sprd *c;
 	const char *clk_name = node->name;
+	const char *parent_name;
 	struct clk_init_data init = {
 		.name = clk_name,
 		.flags = CLK_IGNORE_UNUSED,
@@ -1146,7 +1219,6 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 	}
 
 	if (divreg) {
-		const char *parent_name;
 		struct clk_divider *div;
 
 		of_read_reg(&c->d.div, divreg);
