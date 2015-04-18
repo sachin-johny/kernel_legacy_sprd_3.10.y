@@ -495,17 +495,55 @@ uint32_t sprdfgu_read_vbat_ocv(void)
 {
 #ifndef CONFIG_SPRD_NOFGUCURRENT_CHG
 	uint32_t vol;
+	int rint = sprdfgu_data.cur_rint;
+
+#ifdef SPRDFGU_TEMP_COMP_SOC
+        {
+            int temp;
+
+            temp = sprdbat_read_temp();
+            rint = sprdbat_interpolate(temp/10, sprdfgu_data.pdata->rint_temp_tab_size,
+				sprdfgu_data.pdata->rint_temp_tab);
+            FGU_DEBUG("rint:%d,temp:%d\n", rint, temp);
+        }
+#endif
 
 	if (sprdfgu_read_vbat_ocv_pure(&vol)) {
 		FGU_DEBUG("hwocv...\n");
 		return vol;
 	} else {
 		return sprdfgu_read_vbat_vol() -
-		    (sprdfgu_read_batcurrent() * sprdfgu_data.cur_rint) / 1000;
+		    (sprdfgu_read_batcurrent() * rint) / 1000;
 	}
 #else
 	return sprdfgu_read_vbat_vol();
 #endif
+}
+
+static int sprdfgu_temp_comp_soc(int soc, int temp)
+{
+	int cnom_temp;
+	int comp_soc, delta_soc;
+
+	cnom_temp = 0;
+
+	cnom_temp = sprdbat_interpolate(temp, sprdfgu_data.pdata->cnom_temp_tab_size,
+				sprdfgu_data.pdata->cnom_temp_tab);
+	delta_soc =
+	    (sprdfgu_data.pdata->cnom - cnom_temp) * 100 / sprdfgu_data.pdata->cnom;
+
+	comp_soc = (long)(soc - delta_soc) * 100 / (100 - delta_soc);
+
+	if (comp_soc < 0)
+		comp_soc = 0;
+
+	if (comp_soc > 100)
+		comp_soc = 100;
+
+	FGU_DEBUG("cnom_temp %d, delta_soc %d,comp_soc%d,soc %d,temp %d\n",
+		  cnom_temp, delta_soc, comp_soc, soc, temp);
+
+	return (comp_soc);
 }
 
 int sprdfgu_read_soc(void)
@@ -562,6 +600,25 @@ int sprdfgu_read_soc(void)
 		sprdfgu_soc_adjust(sprdfgu_vol2capacity(cur_ocv));
 		capcity_delta = sprdfgu_vol2capacity(cur_ocv);
 	}
+
+#ifdef SPRDFGU_TEMP_COMP_SOC
+            {
+                int temp;
+
+                temp = sprdbat_read_temp();
+                capcity_delta =
+                    sprdfgu_temp_comp_soc(capcity_delta, temp / 10);
+            }
+#endif
+
+#ifdef SPRDFGU_TEMP_COMP_SOC
+        if (sprdfgu_read_vbat_vol() < sprdfgu_data.pdata->soft_vbat_uvlo) {
+            FGU_DEBUG("TEMP_COMP_SOC vol 0...\n");
+            capcity_delta = 0;
+            sprdfgu_soc_adjust(capcity_delta);
+        }
+#endif
+
 	mutex_unlock(&sprdfgu_data.lock);
 	return capcity_delta;
 }

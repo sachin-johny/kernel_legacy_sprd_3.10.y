@@ -47,6 +47,8 @@
 #define SPRDBAT_AUXADC_CAL_TYPE_NV         1
 #define SPRDBAT_AUXADC_CAL_TYPE_EFUSE      2
 
+//#define SPRDFGU_TEMP_COMP_SOC
+
 enum sprd_adapter_type {
 	ADP_TYPE_UNKNOW = 0,	//unknow adapter type
 	ADP_TYPE_CDP = 1,	//Charging Downstream Port,USB&standard charger

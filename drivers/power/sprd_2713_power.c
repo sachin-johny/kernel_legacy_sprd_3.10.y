@@ -1881,6 +1881,14 @@ static void print_pdata(struct sprd_battery_platform_data *pdata)
 			  pdata->temp_tab[i].x, pdata->temp_tab[i].y);
 	}
 
+	for (i = 0; i < pdata->cnom_temp_tab_size; i++) {
+		PDATA_LOG("cnom_temp_tab i=%d x:%d,y:%d\n", i, pdata->cnom_temp_tab[i].x,
+			  pdata->cnom_temp_tab[i].y);
+	}
+	for (i = 0; i < pdata->rint_temp_tab_size; i++) {
+		PDATA_LOG("rint_temp_tab i=%d x:%d,y:%d\n", i, pdata->rint_temp_tab[i].x,
+			  pdata->rint_temp_tab[i].y);
+	}
 }
 
 #ifdef CONFIG_OF
@@ -1892,7 +1900,7 @@ static struct sprd_battery_platform_data *sprdbat_parse_dt(struct
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *temp_np = NULL;
 	unsigned int irq_num;
-	int ret, i, temp;
+	int ret, i, temp,len;
 
 	pdata = devm_kzalloc(&pdev->dev,
 			     sizeof(struct sprd_battery_platform_data),
@@ -2047,6 +2055,34 @@ static struct sprd_battery_platform_data *sprdbat_parse_dt(struct
 		ret =
 		    of_property_read_u32_index(np, "ocv-tab-cap", i,
 					       (u32 *) (&pdata->ocv_tab[i].y));
+	}
+
+	of_get_property(np, "cnom-temp-tab", &len);
+	len /= sizeof(u32);
+	pdata->cnom_temp_tab_size = len >> 1;
+	pdata->cnom_temp_tab = kzalloc(sizeof(struct sprdbat_table_data) *
+			 pdata->cnom_temp_tab_size, GFP_KERNEL);
+	for (i = 0; i < len; i++) {
+		of_property_read_u32_index(np, "cnom-temp-tab", i, &temp);
+		if(i&0x1) {
+				pdata->cnom_temp_tab[i >> 1].y = temp;
+		} else {
+				pdata->cnom_temp_tab[i >> 1].x = temp - 1000;
+		}
+	}
+
+	of_get_property(np, "rint-temp-tab", &len);
+	len /= sizeof(u32);
+	pdata->rint_temp_tab_size = len >> 1;
+	pdata->rint_temp_tab = kzalloc(sizeof(struct sprdbat_table_data) *
+			 pdata->rint_temp_tab_size, GFP_KERNEL);
+	for (i = 0; i < len; i++) {
+		of_property_read_u32_index(np, "rint-temp-tab", i, &temp);
+		if(i&0x1) {
+			pdata->rint_temp_tab[i >> 1].y = temp;
+		} else {
+			pdata->rint_temp_tab[i >> 1].x = temp - 1000;
+		}
 	}
 
 	return pdata;

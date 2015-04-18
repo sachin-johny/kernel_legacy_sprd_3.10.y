@@ -68,6 +68,14 @@
 		ocv-tab-size = <21>;
 		ocv-tab-vol = <4185 4113 4066 4022 3983 3949 3917 3889 3864 3835 3805 3787 3777 3773 3770 3765 3752 3724 3680 3605 3400>;
 		ocv-tab-cap = <100  95   90   85   80   75   70   65   60   55   50   45   40   35   30   25   20   15   10   5    0>;
+		cnom-temp-tab = <1020 1800	/*value = 1000 + temp*/
+				1010 1300
+				1000 1070
+				990  1000>;
+		rint-temp-tab = <1020 200	/*value = 1000 + temp*/
+				1010 450
+				1000 650
+				990  1100>;
 		sprd_chg: sprd_chg{
 			compatible  = "sprd,sprd_chg";
 			interrupt-parent = <&gic>;
