@@ -1909,6 +1909,7 @@ static struct sprd_battery_platform_data *sprdbat_parse_dt(struct
 		return NULL;
 	}
 
+	pdata->gpio_vchg_detect = (uint32_t) of_get_named_gpio(np, "gpios", 0);
 	pdata->gpio_cv_state = (uint32_t) of_get_named_gpio(np, "gpios", 1);
 	pdata->gpio_vchg_ovi = (uint32_t) of_get_named_gpio(np, "gpios", 2);
 

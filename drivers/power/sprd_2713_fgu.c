@@ -23,6 +23,7 @@
 #include <linux/hrtimer.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include "sprd_2713_fgu.h"
@@ -896,6 +897,19 @@ static void sprdfgu_hw_init(void)
 	    || (sprdfgu_rtc_reg_read() == 0xFFF)) {
 		FGU_DEBUG("FIRST_POWERTON- = 0x%x\n",
 			  sprdfgu_poweron_type_read());
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+		if(gpio_get_value(sprdfgu_data.pdata->gpio_vchg_detect)){
+			uint32_t soft_ocv = sprdfgu_read_vbat_vol() -
+							(sprdfgu_adc2cur_ma
+							(current_raw - CUR_0ma_IDEA_ADC +
+							fgu_cal.cur_offset) * sprdfgu_data.poweron_rint) / 1000;
+
+			sprdfgu_data.init_cap = sprdfgu_vol2capacity(soft_ocv);
+			FGU_DEBUG
+			    ("Charger poweron soft_ocv:%d,sprdfgu_data.init_cap:%d\n",
+			     soft_ocv, sprdfgu_data.init_cap);
+		} else
+#endif
 		{
 			int poci_raw =
 			    sprdfgu_reg_get(REG_FGU_CLBCNT_QMAXL) << 1;
@@ -1101,6 +1115,14 @@ int sprdfgu_init(struct sprd_battery_platform_data *pdata)
 	sprdfgu_data.bat_full_vol = sprdfgu_data.pdata->ocv_tab[0].x;
 	sprdfgu_data.cur_rint = sprdfgu_data.pdata->rint;
 	sprdfgu_data.poweron_rint = sprdfgu_data.pdata->rint;
+
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+	ret = gpio_request(sprdfgu_data.pdata->gpio_vchg_detect, "chg_vchg_detect");
+	if (ret) {
+		FGU_DEBUG("Already request vchg gpio:%d\n",sprdfgu_data.pdata->gpio_vchg_detect);
+	}
+	gpio_direction_input(sprdfgu_data.pdata->gpio_vchg_detect);
+#endif
 
 	if (fgu_cal.cal_type == SPRDBAT_FGUADC_CAL_NO) {
 		sprdfgu_cal_from_chip();	//try to find cal data from efuse
