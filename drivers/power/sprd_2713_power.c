@@ -1084,12 +1084,12 @@ static void sprdbat_print_battery_log(void)
 	get_monotonic_boottime(&cur_time);
 
 	SPRDBAT_DEBUG
-	    ("bat_log:time:%ld,vbat:%d,ocv:%d,current:%d,cap:%d,state:%d,auxbat:%d\n",
+	    ("bat_log:time:%ld,vbat:%d,ocv:%d,current:%d,cap:%d,state:%d,auxbat:%d,temp:%d\n",
 	     cur_time.tv_sec, sprdbat_data->bat_info.vbat_vol,
 	     sprdbat_data->bat_info.vbat_ocv,
 	     sprdbat_data->bat_info.bat_current,
 	     sprdbat_data->bat_info.capacity,
-	     sprdbat_data->bat_info.module_state, sprdchg_read_vbat_vol());
+	     sprdbat_data->bat_info.module_state, sprdchg_read_vbat_vol(), sprdbat_data->bat_info.cur_temp);
 }
 
 #define SPRDBAT_SHUTDOWN_OFSSET 50
@@ -1329,17 +1329,17 @@ static void sprdbat_temp_monitor(void)
 					sprdbat_change_module_state
 					    (SPRDBAT_OTP_OVERHEAT_STOP_E);
 				}
-				sprdchg_timer_enable(sprdbat_data->pdata->
-						     chg_polling_time);
+				//sprdchg_timer_enable(sprdbat_data->pdata->
+				//		     chg_polling_time);
 				temp_trigger_cnt = 0;
 			} else {
-				sprdchg_timer_enable(sprdbat_data->pdata->
-						     chg_polling_time_fast);
+				//sprdchg_timer_enable(sprdbat_data->pdata->
+				//		     chg_polling_time_fast);
 			}
 		} else {
 			if (temp_trigger_cnt) {
-				sprdchg_timer_enable(sprdbat_data->pdata->
-						     chg_polling_time);
+				//sprdchg_timer_enable(sprdbat_data->pdata->
+				//		     chg_polling_time);
 				temp_trigger_cnt = 0;
 			}
 		}
@@ -1850,6 +1850,7 @@ static void print_pdata(struct sprd_battery_platform_data *pdata)
 	PDATA_LOG("temp_adc_scale:%d\n", pdata->temp_adc_scale);
 	PDATA_LOG("temp_adc_sample_cnt:%d\n", pdata->temp_adc_sample_cnt);
 	PDATA_LOG("temp_table_mode:%d\n", pdata->temp_table_mode);
+	PDATA_LOG("temp_comp_res:%d\n", pdata->temp_comp_res);
 	PDATA_LOG("temp_tab_size:%d\n", pdata->temp_tab_size);
 	PDATA_LOG("gpio_vchg_detect:%d\n", pdata->gpio_vchg_detect);
 	PDATA_LOG("gpio_cv_state:%d\n", pdata->gpio_cv_state);
@@ -1999,6 +2000,10 @@ static struct sprd_battery_platform_data *sprdbat_parse_dt(struct
 	ret =
 	    of_property_read_u32(np, "temp-table-mode",
 				 (u32 *) (&pdata->temp_table_mode));
+	ret =
+	    of_property_read_u32(np, "temp-comp-res",
+				 (u32 *) (&pdata->temp_comp_res));
+
 	ret = of_property_read_u32(np, "fgu-mode", &pdata->fgu_mode);
 	ret = of_property_read_u32(np, "alm-soc", &pdata->alm_soc);
 	ret = of_property_read_u32(np, "alm-vol", &pdata->alm_vol);

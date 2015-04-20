@@ -58,6 +58,7 @@ struct sprd_battery_platform_data {
 	int temp_adc_scale;
 	int temp_adc_sample_cnt;	/*1-15,should be lower than 16 */
 	int temp_table_mode;	//0:adc-degree;1:voltage-degree
+	int temp_comp_res;	//mohm, use rsense + connector resistor to compensate temp;
 	struct sprdbat_table_data *temp_tab;	/* OCV curve adjustment */
 	int temp_tab_size;
 

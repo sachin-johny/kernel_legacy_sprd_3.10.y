@@ -36,7 +36,7 @@
 		otp-high-restart = <1550>;
 		otp-low-stop = <950>;
 		otp-low-restart = <1000>;
-		chg-polling-time = <60>;
+		chg-polling-time = <30>;
 		chg-polling-time-fast = <1>;
 		bat-polling-time = <15>;
 		bat-polling-time-fast = <15>;
@@ -47,6 +47,7 @@
 		temp-adc-scale = <1>;
 		temp-adc-sample-cnt = <15>;
 		temp-table-mode = <1>;
+		temp-comp-res = <30>;	/*30mohm,if temp-table-mode = <1>, use it*/
 		temp-tab-size = <19>;
 		temp-tab-val = <1084 1072 1055 1033 1008 977
 				938 897 850 798 742 686

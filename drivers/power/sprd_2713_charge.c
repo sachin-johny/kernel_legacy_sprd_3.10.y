@@ -285,25 +285,87 @@ int sprdchg_read_temp_adc(void)
 	}
 }
 
+static int sprdchg_temp_vol_comp(int vol)
+{
+	int bat_cur = sprdfgu_read_batcurrent();
+	int res_comp = pbat_data->temp_comp_res;
+	int vol_comp = 0;
+
+	printk("sprdchg: sprdchg_temp_vol_comp bat_cur:%d\n",
+				   bat_cur);
+	vol_comp = (bat_cur * res_comp)/1000;
+	vol = vol - vol_comp + ((vol_comp *(vol - vol_comp))/(1800 - vol_comp));
+	if(vol < 0) vol = 0;
+
+	return (vol);
+}
+
+#define TEMP_BUFF_CNT 5
+static int temp_buff[TEMP_BUFF_CNT] = {200,200,200,200,200};
+static void sprdchg_update_temp_buff(int temp)
+{
+	static int pointer = 0;
+	if(pointer >= TEMP_BUFF_CNT) pointer = 0;
+
+	temp_buff[pointer++] = temp;
+}
+static int sprdchg_get_temp_from_buff(void)
+{
+	int i = 0,j = 0,temp;
+	int t_temp_buff[TEMP_BUFF_CNT] = {0};
+
+	for(i = 0; i < TEMP_BUFF_CNT; i++) {
+		t_temp_buff[i] = temp_buff[i];
+		printk("sprdchg: temp_buff[%d]:%d\n",
+		       i, temp_buff[i]);
+	}
+
+	for (j = 1; j <= TEMP_BUFF_CNT - 1; j++) {
+		for (i = 0; i < TEMP_BUFF_CNT - j; i++) {
+			if (t_temp_buff[i] > t_temp_buff[i + 1]) {
+				temp = t_temp_buff[i];
+				t_temp_buff[i] = t_temp_buff[i + 1];
+				t_temp_buff[i + 1] = temp;
+			}
+		}
+	}
+#if 0
+	for(i = 0; i < TEMP_BUFF_CNT;i++ ){
+		printk("sprdchg: t_temp_buff[%d]:%d\n",
+		       i, t_temp_buff[i]);
+	}
+#endif
+	return t_temp_buff[TEMP_BUFF_CNT / 2];
+}
 int sprdchg_search_temp_tab(int val)
 {
 	return sprdbat_interpolate(val, pbat_data->temp_tab_size,
 				   pbat_data->temp_tab);
 }
 
+#define TEMP_BUFF_EN
 int sprdchg_read_temp(void)
 {
 	if (pbat_data->temp_support) {
+		int temp;
 		int val = sprdchg_read_temp_adc();
 		//voltage mode
 		if (pbat_data->temp_table_mode) {
 			val =
 			    sprdchg_adc_to_vol(pbat_data->temp_adc_ch,
 					       pbat_data->temp_adc_scale, val);
-			printk("sprdchg: sprdchg_read_temp voltage:%d\n", val);
+			printk("sprdchg: sprdchg_read_temp voltage:%d,temp raw:%d\n", val,sprdchg_search_temp_tab(val));
+			val = sprdchg_temp_vol_comp(val);
+			printk("sprdchg: sprdchg_read_temp comp voltage:%d\n", val);
 		}
-
-		return sprdchg_search_temp_tab(val);
+		temp = sprdchg_search_temp_tab(val);
+		//printk("sprdchg: sprdchg_read_temp temp comp:%d\n", temp);
+#ifdef TEMP_BUFF_EN
+		sprdchg_update_temp_buff(temp);
+		temp = sprdchg_get_temp_from_buff();
+#endif
+		printk("sprdchg: sprdchg_read_temp temp result:%d\n", temp);
+		return temp;
 	} else {
 		return 200;
 	}
