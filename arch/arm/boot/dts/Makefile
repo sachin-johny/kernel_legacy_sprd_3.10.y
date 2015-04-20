@@ -241,6 +241,7 @@ dtb-$(CONFIG_MACH_SP9830AEA_5M_H100) += sprd-scx35l_sp9830aea_5m_h100.dtb
 dtb-$(CONFIG_MACH_SP9830IEB_5M_H100) += sprd-scx35l_sp9830ieb_5m_h100.dtb
 dtb-$(CONFIG_MACH_SP9630EA_3592M_3MOD) += sprd-scx35l_sp9630ea_3592m_3mod.dtb
 dtb-$(CONFIG_MACH_COREPRIMELITE) += sprd-scx35l_coreprimelite.dtb
+dtb-$(CONFIG_MACH_SHARKL_J1POPLTE) += sprd-scx35l_sharkl_j1poplte.dtb
 dtb-$(CONFIG_MACH_COREPRIMELITE_MARLIN) += sprd-scx35l_coreprimelite_marlin.dtb
 dtb-$(CONFIG_MACH_SP9630EA_4MOD) += sprd-scx35l_sp9630ea_4mod.dtb
 

@@ -409,6 +409,17 @@ config MACH_COREPRIMELITE
 	help
 	SPX35L board based on shark-l serial.
 
+config MACH_SHARKL_J1POPLTE
+	bool "sharkl_j1poplte Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX35L
+	default n
+	select COMMON_CLK if OF
+	select CLKSRC_OF if OF
+	help
+	SPX35L board based on shark-l serial.
+
 config MACH_COREPRIMELITE_MARLIN
 	bool "coreprimelite_marlin Board"
 	depends on ARCH_SC

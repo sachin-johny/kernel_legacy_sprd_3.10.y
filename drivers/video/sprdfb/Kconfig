@@ -81,6 +81,16 @@ config FB_LCD_SD7798D_MIPI_COREPRIMELITE
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
 	default n
 
+config FB_LCD_HX8369B_MIPI_SHARKL_J1POPLTE
+	boolean "support HX8369B sharkl_j1poplteMIPI panel"
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
+	default n
+
+config FB_LCD_SD7798D_MIPI_SHARKL_J1POPLTE
+	boolean "support SD7798D sharkl_j1poplte MIPI panel"
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
+	default n
+
 config FB_LCD_HX8369B_MIPI_COREPRIMELITE_MARLIN
 	boolean "support HX8369B coreprimelite_marlin MIPI panel"
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L

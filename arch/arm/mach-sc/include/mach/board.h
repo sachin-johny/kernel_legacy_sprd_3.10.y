@@ -146,6 +146,10 @@
 #include "__board-coreprimelite.h"
 #endif
 
+#ifdef CONFIG_MACH_SHARKL_J1POPLTE
+#include "__board-sharkl_j1poplte.h"
+#endif
+
 #ifdef CONFIG_MACH_COREPRIMELITE_MARLIN
 #include "__board-coreprimelite_marlin.h"
 #endif
