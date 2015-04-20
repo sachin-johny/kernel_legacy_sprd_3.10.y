@@ -383,6 +383,12 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 			SDIOTRAN_ERR("%d-high,user_id-%d \n", GPIO_MARLIN_WAKE,user_id);
 			return -2;
 		}
+		if(gpio_get_value(ack_gpio_status))  //bt ack low,then lose the marlinwake irq 
+		{
+			spin_unlock_irqrestore(&sleep_spinlock, flags);
+			SDIOTRAN_ERR("ack_gpio_status-%d \n", ack_gpio_status,user_id);
+			return -2;
+		}
 		
 		if(0 == atomic_read(&(set_marlin_cmplete)))  //last wakeup don't complete
 		{
