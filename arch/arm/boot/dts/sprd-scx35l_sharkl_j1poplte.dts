@@ -9,10 +9,13 @@
 /dts-v1/;
 
 /* memory reserved for SMEM */
-/memreserve/ 0x87800000 0x540000; /* Offset:120M, Size:5M+256K */
+/memreserve/ 0x87800000 0x800000; /* Offset:120M, Size:5M+256K */
+
+/* memory reserved for WARM modem */
+/memreserve/ 0x8DC00000 0xD00000; /* Offset:217M, Size:13M*/
 
 /* memory reserved for LTE modem */
-/memreserve/ 0x89600000 0x4000000; /* Offset:150M, Size:64M*/
+/memreserve/ 0x89600000 0x4600000; /* Offset:150M, Size:70M*/
 
 /* memory reserved for fb */
 /memreserve/ 0x9F8AD000 0x465000; /* 480*800*4*3, 4K alignment*/
@@ -646,21 +649,21 @@
 
 	sipc: sipc@0x87800000 {
 		compatible = "sprd,sipc";
-		reg = <0x87800000 0x540000>; /* <SMEM SIZE>*/
+		reg = <0x87800000 0x5B0000>; /* <SMEM SIZE>*/
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x09600000 0x89600000 0x4000000>,
-				 <0x07800000 0x87800000 0x540000>,
-				 <0x0d5ff000 0x8d5ff000 0x1000>;
+		ranges = <0x09600000 0x89600000 0x4600000>,
+				<0x07800000 0x87800000 0x5B0000>,
+				<0x0dbff000 0x8dbff000 0x1000>;
 		sipc_lte@0x09600000 {
 			sprd,name = "sipc-lte";
 			sprd,dst = <5>;
 			/* it's unnecessary to config IPI info upon mailbox arch */
 			mailbox,core = <7>;
-			reg = <0x09600000 0x4000000> , /* <CP_start_addr size> */
-				  <0x07800000 0x540000>, /* <SMEM_phy_addr total_size> */
-				  <0x0d5ff000 0x1000>; /* smsg ring buffer <base size> */
+			reg = <0x09600000 0x4600000> , /* <CP_start_addr size> */
+				<0x07800000 0x5B0000>, /* <SMEM_phy_addr total_size> */
+				<0x0dbff000 0x1000>; /* smsg ring buffer <base size> */
 		};
 	};
 
@@ -806,22 +809,24 @@
 		sprd,ctrl-reg = <0x0c 0xff 0xb0 0x78>; /* <shut_down deep_sleep reset get_status> */
 		sprd,ctrl-mask = <0x300000 0x40000 0x02 0x1>; /* masks <> */
 		sprd,iram-data = <0xe59f0000 0xe12fff10 0x8ae00000>; /* 3rd param equals modem_addr*/
-		reg = <0x89600000 0x4000000>, /* <CP_start_addr total_size> = <+128M 26M> */
+		reg = <0x89600000 0x5300000>, /* <CP_start_addr total_size> = <+128M 83M> */
 			<0xf53e1000 0x0c>, /* <iram1_base size> */
 			<0xf5250000 0x100>, /* <aon_apb_base size> */
 			<0xf5230000 0x100>, /* <pmu_apb size> */
 			<0xf5230000 0x100>, /* <pmu_base size> */
-			<0xf5250000 0x100>; /* <aon_apb_base size> */
+			<0xf5250000 0x100>, /* <aon_apb_base size> */
+			<0x87fff000 0x1000>;/* <CP_shmem_base size> */
 		interrupts = <0 84 0x0>; /* cp1_wdg_int */
 		#address-cells = <1>;
 		#size-cells = <1>;
-		/* segnr=2 */
-		ranges = <0x1800000 0x8ae00000 0x03100000>,
-				 <0x20000 0x89620000 0x00320000>;
-
+		/* segnr=4 */
+		ranges = <0x1800000 0x8ae00000 0x02E00000>,
+			 <0x0020000 0x89620000 0x002E0000>,
+                         <0x0300000 0x89900000 0x1C0000>,
+                         <0x4900000 0x8df00000 0xA00000>;
 		modem@0x1800000 {
 			cproc,name = "modem";
-			reg = <0x1800000 0x031000000>; /* <modem_addr size> */
+			reg = <0x1800000 0x02E00000>; /* <modem_addr size> */
 		};
 
 		dsp@0x20000 {
@@ -832,6 +837,10 @@
 		dsp@0x300000 {
 			cproc,name = "ldsp";
 			reg = <0x300000 0x1c0000>; /* <dsp_addr size>*/
+		};
+                modem@0x4900000 {
+			cproc,name = "warm";
+			reg = <0x4900000 0xA00000>; /* <modem_addr size>*/
 		};
 	};
 
