@@ -1076,7 +1076,7 @@ static void headset_detect_work_func(struct work_struct *work)
                         break;
                 }
 
-                if(headset_type == HEADSET_NO_MIC)
+                if((headset_type == HEADSET_NO_MIC) || (HEADSET_4POLE_NOT_NORMAL == headset_type))
                         ht->headphone = 1;
                 else
                         ht->headphone = 0;
