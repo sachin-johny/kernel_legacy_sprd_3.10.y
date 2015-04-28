@@ -166,7 +166,6 @@ static async_cookie_t __async_schedule(async_func_t func, void *data, struct asy
 		} else {
 			pr_emerg("%s:there's too much work pending\n", __func__);
 		}
-		BUG();
 		kfree(entry);
 		spin_lock_irqsave(&async_lock, flags);
 		newcookie = next_cookie++;
