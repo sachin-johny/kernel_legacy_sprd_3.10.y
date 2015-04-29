@@ -369,7 +369,7 @@ struct shark_fm_info_t shark_fm_info = {
 };
 
 struct shark_reg_cfg_t fm_reg_init_des[] = {
-	{FM_REG_FM_CTRL	,		0x00001011},
+	{FM_REG_FM_CTRL	,		0x00001012},
 	/*{FM_REG_FM_CTRL	,			0x00023111},*/
 	{FM_REG_FM_EN	,			0x000032EE},
 	{FM_REG_CHAN	,			(899-1)*2},
