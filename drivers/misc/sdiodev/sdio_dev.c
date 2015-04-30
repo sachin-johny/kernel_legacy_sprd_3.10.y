@@ -1307,15 +1307,15 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 		do_gettimeofday(&cur_time);
 		if(ack_gpio_status == gpio_wake_status)
 		{
-			usec = time_d_value(&ack_irq_time, &cur_time);
-			if(usec < 200)    //means invalid gpio value, so discard
+			//usec = time_d_value(&ack_irq_time, &cur_time);
+			//if(usec < 200)    //means invalid gpio value, so discard
 			{
 				SDIOTRAN_ERR("discard gpio%d irq\n", GPIO_MARLIN_WAKE);
 				enable_irq(irq);
 				return;
 			}
-			SDIOTRAN_ERR("gpio%d %d-->%d\n",GPIO_MARLIN_WAKE, gpio_wake_status, 1 - gpio_wake_status );
-			gpio_wake_status = 1 - gpio_wake_status;
+			//SDIOTRAN_ERR("gpio%d %d-->%d\n",GPIO_MARLIN_WAKE, gpio_wake_status, 1 - gpio_wake_status );
+			//gpio_wake_status = 1 - gpio_wake_status;
 			
 		}
 		ack_irq_time    = cur_time;
