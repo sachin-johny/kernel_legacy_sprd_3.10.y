@@ -95,7 +95,9 @@ static struct gadget_wrapper {
 	 */
 	struct workqueue_struct *cable2pc_wq;
 	struct workqueue_struct *detect_wq;
+	struct workqueue_struct *reinit_wq;
 	struct work_struct detect_work;
+	struct work_struct reinit_work;
 	struct delayed_work cable2pc;
 
 	struct switch_dev sdev;
@@ -108,7 +110,6 @@ static struct gadget_wrapper {
 static struct wake_lock usb_wake_lock;
 static DEFINE_MUTEX(udc_lock);
 
-#define USB_SETUP_TIMEOUT_RESTART
 
 #define CABLE_TIMEOUT		(HZ*15)
 
@@ -140,7 +141,7 @@ static struct dwc_otg_pcd_ep *ep_from_handle(dwc_otg_pcd_t * pcd, void *handle)
 extern int in_calibration(void);
 extern void dwc_otg_pcd_stop(dwc_otg_pcd_t *pcd);
 static void dwc_otg_clear_all_int(dwc_otg_core_if_t *core_if);
-static struct timer_list reinit_USB_timer;
+static struct timer_list reinit_usb_timer;
 static int factory_mode = false;
 static int __init factory_start(char *str)
 {
@@ -156,85 +157,56 @@ int in_factory_mode(void)
 	return (factory_mode == true);
 }
 
-static void reinit_USB_timer_fun(unsigned long para)
+static void usb_reinit_works(void)
 {
 	struct gadget_wrapper *d;
 
 	d = gadget_wrapper;
 	
-	DWC_PRINTF("reinit start ...\n");
 	dwc_otg_disable_global_interrupts(GET_CORE_IF(d->pcd));
 	dwc_otg_clear_all_int(GET_CORE_IF(d->pcd));
 	dwc_otg_pcd_stop(d->pcd);
 	udc_disable();
-	mdelay(500);
+	mdelay(200);
 	udc_enable();
 	dwc_otg_core_init(GET_CORE_IF(d->pcd));
 	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
 	dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
+}
+static void reinit_usb_timer_fun(unsigned long para)
+{
+	struct gadget_wrapper *d;
 
-	del_timer(&reinit_USB_timer);
+	d = gadget_wrapper;
+
+	DWC_PRINTF("reinit start ...\n");
+	queue_work(d->reinit_wq, &d->reinit_work);
+	del_timer(&reinit_usb_timer);
 }
 void _reinit_usb_later(dwc_otg_pcd_t *pcd)
 {
 	dctl_data_t	dctl = {.d32=0};
 	dwc_otg_dev_if_t *dev_if;
 
+	if (pcd->reinit_flag == 0)
+		return;
 	dev_if = pcd->core_if->dev_if;
 	dctl.d32 = DWC_READ_REG32(&dev_if->dev_global_regs->dctl);
 	dctl.b.sftdiscon = 1;
 	DWC_WRITE_REG32(&dev_if->dev_global_regs->dctl, dctl.d32);
 	
 	DWC_PRINTF("call reinit USB controller...\n");
-	mod_timer(&reinit_USB_timer, jiffies + 10*HZ);
+	mod_timer(&reinit_usb_timer, jiffies + 3*HZ);
 }
-#ifdef USB_SETUP_TIMEOUT_RESTART
 static struct timer_list setup_transfer_timer;
-static  int suspend_count = 0;
 static  int setup_transfer_timer_start = 0;
-void dwc_udc_startup(void);
-void dwc_udc_shutdown(void);
-static void monitor_setup_transfer(unsigned long para)
-{
-	dwc_otg_pcd_t *pcd;
-	int	in_ep_ctrl = 0;
-	int     in_ep_tsiz = 0;
-	dwc_otg_core_if_t *core_if;
-	dwc_otg_dev_if_t *dev_if;
-
-	pcd = (dwc_otg_pcd_t *)para;
-
-	if(pcd == NULL)
-		return;
-	core_if = GET_CORE_IF(pcd);
-	dev_if = core_if->dev_if;
-	if (pcd->ep0state == EP0_DISCONNECT)
-		return;
-	in_ep_ctrl = dwc_read_reg32(&dev_if->in_ep_regs[0]->diepctl);
-	in_ep_tsiz = dwc_read_reg32(&dev_if->in_ep_regs[0]->dieptsiz);
-	if((in_ep_ctrl & 0x80000000) && (in_ep_tsiz & 0x80000))
-		suspend_count++;
-	else
-		suspend_count = 0;
-	if (suspend_count > 5) {
-		pr_info("Reset USB Controller...");
-		dwc_udc_shutdown();
-		mdelay(500);
-		dwc_udc_startup();
-	}
-}
 static void setup_transfer_timer_fun(unsigned long para)
 {
-	monitor_setup_transfer((unsigned long)gadget_wrapper->pcd);
-
-	if(gadget_wrapper->pcd->ep0state != EP0_DISCONNECT)
-		mod_timer(&setup_transfer_timer, jiffies + HZ);
-	else {
+	if (gadget_wrapper->pcd->reinit_flag) {
 		setup_transfer_timer_start = 0;
-		del_timer(&setup_transfer_timer);
+		_reinit_usb_later(gadget_wrapper->pcd);
 	}
 }
-#endif
 /* USB Endpoint Operations */
 /*
  * The following sections briefly describe the behavior of the Gadget
@@ -759,12 +731,12 @@ static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 {
 	int retval = -DWC_E_NOT_SUPPORTED;
-#ifdef USB_SETUP_TIMEOUT_RESTART
-	if(setup_transfer_timer_start == 0){
+
+	if (pcd->reinit_flag == 1 && setup_transfer_timer_start == 0) {
 		setup_transfer_timer_start = 1;
-		mod_timer(&setup_transfer_timer, jiffies + HZ);
+		mod_timer(&setup_transfer_timer, jiffies + HZ/2);
 	}
-#endif
+
 	if (gadget_wrapper->driver && gadget_wrapper->driver->setup) {
 		retval = gadget_wrapper->driver->setup(&gadget_wrapper->gadget,
 				(struct usb_ctrlrequest
@@ -848,6 +820,11 @@ static int _complete(dwc_otg_pcd_t * pcd, void *ep_handle,
 		default:
 			req->status = status;
 
+		}
+		if (pcd->ep0.priv == ep_handle && pcd->reinit_flag == 1) {
+			pcd->reinit_flag = 3;
+			setup_transfer_timer_start = 0;
+			del_timer(&setup_transfer_timer);
 		}
 		req->actual = actual;
 		DWC_SPINUNLOCK(pcd->lock);
@@ -941,7 +918,6 @@ static const struct dwc_otg_pcd_function_ops fops = {
 #ifdef DWC_UTE_CFI
 	.cfi_setup = _cfi_setup,
 #endif
-	.reenumeration = _reinit_usb_later,
 };
 
 /**
@@ -1458,18 +1434,17 @@ int pcd_init(
 	/*
 	 * initialize a timer for checking cable type.
 	 */
-#ifdef USB_SETUP_TIMEOUT_RESTART
 	{
 		setup_timer(&setup_transfer_timer,
 			setup_transfer_timer_fun,
 			(unsigned long)gadget_wrapper);
 		setup_transfer_timer_start = 0;
-		setup_timer(&reinit_USB_timer, reinit_USB_timer_fun,
+		setup_timer(&reinit_usb_timer, reinit_usb_timer_fun,
 			 (unsigned long) gadget_wrapper);
 	}
-#endif
 	INIT_DELAYED_WORK(&gadget_wrapper->cable2pc, cable2pc_detect_works);
-	gadget_wrapper->cable2pc_wq = create_singlethread_workqueue("usb 2 pc wq");
+	gadget_wrapper->cable2pc_wq =
+		create_singlethread_workqueue("USB2pcWq");
 	/*
 	 * setup usb cable detect interupt
 	 */
@@ -1488,7 +1463,11 @@ int pcd_init(
 	spin_lock_init(&gadget_wrapper->lock);
 
 	INIT_WORK(&gadget_wrapper->detect_work, usb_detect_works);
-	gadget_wrapper->detect_wq = create_singlethread_workqueue("usb detect wq");
+	gadget_wrapper->detect_wq =
+		create_singlethread_workqueue("USBDetectWq");
+	INIT_WORK(&gadget_wrapper->reinit_work, usb_reinit_works);
+	gadget_wrapper->reinit_wq =
+		create_singlethread_workqueue("USBReinitWq");
 	/*
 	 * register a switch device for sending pnp message,
 	 * for the user app need be notified immediately
@@ -1546,6 +1525,7 @@ struct platform_device *_dev
 	dwc_otg_pcd_remove(pcd);
 	destroy_workqueue(gadget_wrapper->detect_wq);
 	destroy_workqueue(gadget_wrapper->cable2pc_wq);
+	destroy_workqueue(gadget_wrapper->reinit_wq);
 	wake_lock_destroy(&usb_wake_lock);
 	switch_dev_unregister(&gadget_wrapper->sdev);
 	free_wrapper(gadget_wrapper);

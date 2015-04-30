@@ -223,6 +223,7 @@ struct dwc_otg_pcd {
 	/** The cfi_api structure that implements most of the CFI API
 	 * and OTG specific core configuration functionality
 	 */
+	uint32_t reinit_flag;
 #ifdef DWC_UTE_CFI
 	struct cfiobject *cfi;
 #endif

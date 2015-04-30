@@ -1637,7 +1637,6 @@ int dwc_otg_pcd_ep_disable(dwc_otg_pcd_t * pcd, void *ep_handle)
 		DWC_DEBUGPL(DBG_PCD, "bad ep address\n");
 		return -DWC_E_INVALID;
 	}
-
 	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 
 	dwc_otg_request_nuke(ep);

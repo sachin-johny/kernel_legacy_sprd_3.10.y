@@ -847,8 +847,6 @@ int32_t dwc_otg_pcd_handle_usb_reset_intr(dwc_otg_pcd_t * pcd)
 	gintsts_data_t gintsts;
 	pcgcctl_data_t power = {.d32 = 0 };
 
-	DWC_PRINTF("lx_state = %d ep0_state = %d addr  = 0x%x USB RESET\n", \
-		core_if->lx_state, pcd->ep0state, dcfg.b.devaddr);
 	power.d32 = DWC_READ_REG32(core_if->pcgcctl);
 	if (power.b.stoppclk) {
 		power.d32 = 0;
@@ -992,21 +990,21 @@ int32_t dwc_otg_pcd_handle_usb_reset_intr(dwc_otg_pcd_t * pcd)
 
 	/* Reset Device Address */
 	dcfg.d32 = DWC_READ_REG32(&dev_if->dev_global_regs->dcfg);
-	gintsts.d32 = 0;
-	if ((pcd->ep0state != EP0_DISCONNECT) && (dcfg.b.devaddr != 0)) {
-
-		pcd->fops->reenumeration(pcd);
-		gintsts.b.enumdone = 1;
-	} else {
-		dcfg.b.devaddr = 0;
-		DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
-
-		/* setup EP0 to receive SETUP packets */
-		if (core_if->snpsid <= OTG_CORE_REV_2_94a)
-			ep0_out_start(core_if, pcd);
+	if ((pcd->reinit_flag == 0) && (pcd->ep0state != EP0_DISCONNECT)
+		 && (dcfg.b.devaddr != 0)) {
+		DWC_PRINTF("ep0_state = %d addr  = 0x%x USB RESET\n",
+			core_if->lx_state, pcd->ep0state, dcfg.b.devaddr);
+		pcd->reinit_flag = 1;
 	}
+	dcfg.b.devaddr = 0;
+	DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
+
+	/* setup EP0 to receive SETUP packets */
+	if (core_if->snpsid <= OTG_CORE_REV_2_94a)
+		ep0_out_start(core_if, pcd);
 
 	/* Clear interrupt */
+	gintsts.d32 = 0;
 	gintsts.b.usbreset = 1;
 	DWC_WRITE_REG32(&core_if->core_global_regs->gintsts, gintsts.d32);
 
@@ -1906,6 +1904,7 @@ static inline void pcd_setup(dwc_otg_pcd_t * pcd)
 	case UR_SET_INTERFACE:
 	case UR_SET_CONFIG:
 //              _pcd->request_config = 1;       /* Configuration changed */
+		pcd->reinit_flag = 0;
 		do_gadget_setup(pcd, &ctrl);
 		break;
 

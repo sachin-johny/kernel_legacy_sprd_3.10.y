@@ -102,7 +102,6 @@ typedef int (*dwc_hnp_params_changed_cb_t) (dwc_otg_pcd_t * pcd);
 typedef int (*dwc_reset_cb_t) (dwc_otg_pcd_t * pcd);
 
 typedef int (*cfi_setup_cb_t) (dwc_otg_pcd_t * pcd, void *ctrl_req_bytes);
-typedef int (*dwc_reenumeration_cb_t) (dwc_otg_pcd_t * pcd);
 
 /**
  *
@@ -129,7 +128,6 @@ struct dwc_otg_pcd_function_ops {
 #ifdef DWC_UTE_PER_IO
 	xiso_completion_cb_t xisoc_complete;
 #endif
-	dwc_reenumeration_cb_t reenumeration;
 };
 /** @} */
 
