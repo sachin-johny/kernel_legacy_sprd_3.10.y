@@ -659,8 +659,9 @@ static void print_usage(struct seq_file *p, void *v)
 {
 	unsigned long flags;
 	unsigned long i;
-        /*trigger sysrq when print usage for extra debug info*/
-        __handle_sysrq('w' , false);
+	/*trigger sysrq when print usage for extra debug info*/
+	__handle_sysrq('w' , false);
+	__handle_sysrq('m' , false);
 	/*lock*/
 	spin_lock_irqsave(&usage_lock, flags);
 
