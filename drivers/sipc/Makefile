@@ -5,7 +5,7 @@ else
 obj-$(CONFIG_SIPC)		+= smsg.o smem.o sbuf.o sblock.o sipc_debugfs.o
 endif
 
-obj-$(CONFIG_SIPC_PMIC)        += sctrl.o
+
 
 obj-$(CONFIG_SIPC_SPIPE)	+= spipe.o
 
