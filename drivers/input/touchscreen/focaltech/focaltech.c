@@ -662,7 +662,7 @@ static void ft5x0x_ts_resume_work(struct work_struct *work)
 {
 	pr_info("==%s==\n", __FUNCTION__);
 	ft5x0x_ts_reset();
-	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 5);
+	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);
 	enable_irq(this_client->irq);
 }
 #endif
@@ -757,7 +757,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	}
        
 	/* set report rate, about 70HZ */
-	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 5);
+	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);
 #if USE_WORK_QUEUE
 	INIT_WORK(&ft5x0x_ts->pen_event_work, ft5x0x_ts_pen_irq_work);
 
