@@ -98,7 +98,10 @@
 #include "./chip_x35l/__regs_pub_apb.h"
 #if defined(CONFIG_MACH_SP9830I)
 #include "./chip_x35l/__regs_codec_ahb.h"
+#define REG_AON_APB_CHIP_ID_H     REG_AON_APB_AON_CHIP_ID_H
+#define REG_AON_APB_CHIP_ID_L     REG_AON_APB_AON_CHIP_ID_L
 #endif
+#define REG_AON_APB_CHIP_ID     REG_AON_APB_AON_CHIP_ID
 #elif defined(CONFIG_ARCH_SCX35)
 
 #if defined(CONFIG_ADIE_SC2713S)

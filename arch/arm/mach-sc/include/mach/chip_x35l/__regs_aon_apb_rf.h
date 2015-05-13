@@ -67,6 +67,11 @@
 #define REG_AON_APB_CORTEX_MTX_CTRL2                   SCI_ADDR(REGS_AON_APB_BASE, 0x0094)
 #define REG_AON_APB_CORTEX_MTX_CTRL3                   SCI_ADDR(REGS_AON_APB_BASE, 0x0098)/*DSP reset*/
 #define REG_AON_APB_CA5_TCLK_DLY_LEN                   SCI_ADDR(REGS_AON_APB_BASE, 0x009C)/*APB clock control*/
+#ifdef CONFIG_MACH_SP9830I
+#define REG_AON_APB_AON_CHIP_ID_H                      SCI_ADDR(REGS_AON_APB_BASE, 0x00F8)
+#endif
+#define REG_AON_APB_AON_CHIP_ID                        SCI_ADDR(REGS_AON_APB_BASE, 0x00FC)
+#define REG_AON_APB_AON_CHIP_ID_L                      REG_AON_APB_AON_CHIP_ID
 #define REG_AON_APB_CCIR_RCVR_CFG                      SCI_ADDR(REGS_AON_APB_BASE, 0x0100)/*APB clock control*/
 #define REG_AON_APB_PLL_BG_CFG                         SCI_ADDR(REGS_AON_APB_BASE, 0x0108)
 #define REG_AON_APB_LVDSDIS_SEL                        SCI_ADDR(REGS_AON_APB_BASE, 0x010C)
@@ -101,7 +106,6 @@
 #define REG_AON_APB_PLL_LOCK_OUT_SEL                   SCI_ADDR(REGS_AON_APB_BASE, 0x3064)
 #define REG_AON_APB_RTC4M_RC_VAL                       SCI_ADDR(REGS_AON_APB_BASE, 0x3068)
 #define REG_AON_APB_AON_APB_RSV                        SCI_ADDR(REGS_AON_APB_BASE, 0x30F0)
-#define REG_AON_APB_CHIP_ID                        	   SCI_ADDR(REGS_AON_APB_BASE, 0x00FC)
 
 
 
