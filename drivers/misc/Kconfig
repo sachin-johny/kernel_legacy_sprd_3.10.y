@@ -594,4 +594,10 @@ config SPRD_SRT_KO
 	depends on SPRD_SRT
 	default m
 
+config SCX35L_SCENARIO_DFS
+       bool "Spreadtrum scx35L scenario DDR DFS"
+       depends on ARCH_SCX35L && SIPC
+       help
+         This adds the scenario dfs drive for sharkL
+
 endmenu

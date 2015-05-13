@@ -72,3 +72,4 @@ obj-$(CONFIG_MDBG)  += mdbg/
 obj-y	+= sprd_dwnload/
 obj-y	+= sprd_board_type.o
 obj-y	+= sprd_wcn/
+obj-$(CONFIG_SCX35L_SCENARIO_DFS) += scx35_scenario_dmc.o
