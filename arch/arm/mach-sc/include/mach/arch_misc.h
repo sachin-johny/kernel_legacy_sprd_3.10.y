@@ -26,6 +26,9 @@
 #define SCX9630_ALPHA_TAPOUT            (0x96300000)
 #define SCX9630_ALPHA_TAPOUT_MASK       (0xFFFFF000)
 
+#define SCX9830I_ALPHA_TAPOUT            (0x6b4c5300)
+#define SCX9830I_ALPHA_TAPOUT_MASK       (0xFFFFFFFF)
+
 /**
  * sci_get_chip_id - read chip id
  *
@@ -91,12 +94,16 @@ IS_CPU(sc8735v0, SCX35_ALPHA_TAPOUT, SCX35_ALPHA_TAPOUT_MASK)
 IS_CPU(sc8735v1, SCX35_BETA_TAPOUT, SCX35_BETA_TAPOUT_MASK)
 IS_CPU(sc8735gv0, SCX35G_ALPHA_TAPOUT, SCX35G_ALPHA_TAPOUT_MASK)
 IS_CPU(sc9630v0, SCX9630_ALPHA_TAPOUT, SCX9630_ALPHA_TAPOUT_MASK)
+IS_CPU(sc9830iv0, SCX9830I_ALPHA_TAPOUT, SCX9830I_ALPHA_TAPOUT_MASK)
+
 
 /*Driver can use this MACRO to distinguish different chip code */
 #define soc_is_scx35_v0()	soc_id_is_sc8735v0()
 #define soc_is_scx35_v1()	soc_id_is_sc8735v1()
 #define soc_is_scx35g_v0()     soc_id_is_sc8735gv0()
 #define soc_is_scx9630_v0()     soc_id_is_sc9630v0()
+#define soc_is_scx9830i_v0()     soc_id_is_sc9830iv0()
+
 
 /**
 * read value from virtual address. Pls make sure val is not NULL.

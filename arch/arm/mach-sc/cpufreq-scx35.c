@@ -615,7 +615,7 @@ static int sprd_freq_table_init(void)
 	        sprd_cpufreq_conf->freq_tbl = sc8830t_cpufreq_table_data_es.freq_tbl;
 	        sprd_cpufreq_conf->vddarm_mv = sc8830t_cpufreq_table_data_es.vddarm_mv;
 	}
-else if(soc_is_scx9630_v0()){
+else if(soc_is_scx9630_v0() || soc_is_scx9830i_v0()){
 #if defined(CONFIG_SCX35L_1350MHZ)
 	        sprd_cpufreq_conf->freq_tbl = sc9630_1350m_cpufreq_table_data.freq_tbl;
 	        sprd_cpufreq_conf->vddarm_mv = sc9630_1350m_cpufreq_table_data.vddarm_mv;
