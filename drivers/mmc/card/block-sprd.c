@@ -60,7 +60,7 @@ MODULE_ALIAS("mmc:block");
 #define INAND_CMD38_ARG_SECERASE 0x80
 #define INAND_CMD38_ARG_SECTRIM1 0x81
 #define INAND_CMD38_ARG_SECTRIM2 0x88
-#define MMC_BLK_TIMEOUT_MS  (300)   /*(10 * 60 * 1000) to 300*//* 10 minute timeout */
+#define MMC_BLK_TIMEOUT_MS  (2000)   /* 2 seconds timeout */
 
 #define mmc_req_rel_wr(req)	(((req->cmd_flags & REQ_FUA) || \
 				  (req->cmd_flags & REQ_META)) && \
@@ -1793,7 +1793,17 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			break;
 		case MMC_BLK_CMD_ERR:
 			printk("%s MMC_BLK_CMD_ERR\n",__func__);
-			ret = mmc_blk_cmd_err(md, card, brq, req, ret);
+
+			/*
+			 * If the mmc_blk_cmd_err function returns zero, the new
+			 * coming request will be missed forever. On the other hand,
+			 * mmc_blk_cmd_err function may end the ongoing request
+			 * (previoulsy started) at risk. So we disable it here.
+
+			    ret = mmc_blk_cmd_err(md, card, brq, req, ret);
+
+			 */
+
 			if (!mmc_blk_reset(md, card->host, type))
 				break;
 			goto cmd_abort;
