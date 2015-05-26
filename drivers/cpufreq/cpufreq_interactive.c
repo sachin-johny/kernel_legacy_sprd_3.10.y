@@ -1099,25 +1099,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			up_write(&pcpu->enable_sem);
 		}
 
-		/*
-		 * Do not register the idle hook and create sysfs
-		 * entries if we have already done so.
-		 */
-		if (++active_count > 1) {
-			mutex_unlock(&gov_lock);
-			return 0;
-		}
-
-		rc = sysfs_create_group(cpufreq_global_kobject,
-				&interactive_attr_group);
-		if (rc) {
-			mutex_unlock(&gov_lock);
-			return rc;
-		}
-
-		idle_notifier_register(&cpufreq_interactive_idle_nb);
-		cpufreq_register_notifier(
-			&cpufreq_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
 		mutex_unlock(&gov_lock);
 		break;
 
@@ -1132,17 +1113,38 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			up_write(&pcpu->enable_sem);
 		}
 
-		if (--active_count > 0) {
-			mutex_unlock(&gov_lock);
-			return 0;
-		}
-
-		cpufreq_unregister_notifier(
-			&cpufreq_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
-		idle_notifier_unregister(&cpufreq_interactive_idle_nb);
-		sysfs_remove_group(cpufreq_global_kobject,
-				&interactive_attr_group);
 		mutex_unlock(&gov_lock);
+		break;
+
+	case CPUFREQ_GOV_POLICY_INIT:
+
+		/*
+		 * Do not register the idle hook and create sysfs
+		 * entries if we have already done so.
+		 */
+		if (++active_count > 1)
+			return 0;
+
+		rc = sysfs_create_group(cpufreq_global_kobject,
+				&interactive_attr_group);
+		if (rc)
+			return rc;
+		if (!policy->governor->initialized) {
+			idle_notifier_register(&cpufreq_interactive_idle_nb);
+			cpufreq_register_notifier(
+				&cpufreq_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
+		}
+		break;
+
+	case CPUFREQ_GOV_POLICY_EXIT:
+		if (!--active_count) {
+			if (policy->governor->initialized == 1) {
+					cpufreq_unregister_notifier(
+						&cpufreq_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
+					idle_notifier_unregister(&cpufreq_interactive_idle_nb);
+			}
+			sysfs_remove_group(cpufreq_global_kobject,&interactive_attr_group);
+		}
 
 		break;
 
