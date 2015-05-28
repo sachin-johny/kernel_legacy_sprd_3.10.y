@@ -647,6 +647,8 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 * timeout value.
 	 */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL){
+		if (38 == cmd->opcode)
+			return 0xE;
 		count=0;
 		target_timeout = SDHCI_MAX_TIMEOUT*host->clock;
 		current_timeout = 1<<16;
@@ -999,7 +1001,10 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		mdelay(1);
 	}
 
-	mod_timer(&host->timer, jiffies + 10 * HZ);
+	if (38 == cmd->opcode)
+		mod_timer(&host->timer, jiffies + msecs_to_jiffies(host->mmc->max_discard_to+1000));
+	else
+		mod_timer(&host->timer, jiffies + (SDHCI_MAX_TIMEOUT+1) * HZ);
 
 	host->cmd = cmd;
 
