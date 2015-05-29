@@ -32,8 +32,8 @@
 #define SPRD_FLASH_CTRL_BIT      0x8000
 #define SPRD_FLASH_LOW_VAL       0x3
 #define SPRD_FLASH_HIGH_VAL      0xF
-#define SPRD_FLASH_LOW_CUR       5
-#define SPRD_FLASH_HIGH_CUR      35
+#define SPRD_FLASH_LOW_CUR       50
+#define SPRD_FLASH_HIGH_CUR      100
 
 #define GPIO_KEY_VOLUMEDOWN 124
 #define GPIO_KEY_VOLUMEUP 125
