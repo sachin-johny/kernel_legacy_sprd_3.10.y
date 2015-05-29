@@ -11,7 +11,7 @@
 #include <linux/tick.h>
 #include <linux/types.h>
 #include <linux/cpu.h>
-#include <linux/thermal.h>
+#include <linux/sprd_cpu_cooling.h>
 #include <linux/err.h>
 #include <linux/earlysuspend.h>
 #include <linux/suspend.h>
@@ -28,6 +28,7 @@ static unsigned int boot_done;
 
 static struct delayed_work plugin_work;
 static struct delayed_work unplug_work;
+static struct work_struct unplug_request_work;
 
 u64 g_prev_cpu_wall[4] = {0};
 u64 g_prev_cpu_idle[4] = {0};
@@ -241,6 +242,28 @@ static void sprd_unplug_one_cpu_ss()
 			cpuid = cpumask_next(0, cpu_online_mask);
 			pr_info("!!  we gonna unplug cpu%d  !!\n",cpuid);
 			cpu_down(cpuid);
+		}
+	}
+#endif
+	return;
+}
+
+static void sprd_unplug_cpus(struct work_struct *work)
+{
+	int cpu;
+	int be_offline_num;
+
+#ifdef CONFIG_HOTPLUG_CPU
+	if (num_online_cpus() > g_sd_tuners->cpu_num_limit) {
+		be_offline_num = num_online_cpus() -
+				g_sd_tuners->cpu_num_limit;
+		for_each_online_cpu(cpu) {
+			if (0 == cpu)
+				continue;
+			pr_info("!!  all gonna unplug cpu%d  !!\n", cpu);
+			cpu_down(cpu);
+			if (--be_offline_num <= 0)
+				break;
 		}
 	}
 #endif
@@ -708,7 +731,7 @@ static int sd_tuners_init(struct sd_dbs_tuners *tuners)
 
 	INIT_DELAYED_WORK(&plugin_work, sprd_plugin_one_cpu_ss);
 	INIT_DELAYED_WORK(&unplug_work, sprd_unplug_one_cpu_ss);
-
+	INIT_WORK(&unplug_request_work, sprd_unplug_cpus);
 	return 0;
 }
 
@@ -1193,6 +1216,21 @@ struct input_handler dbs_input_handler = {
 	.name		= "cpufreq_ond",
 	.id_table	= dbs_ids,
 };
+
+int cpu_core_thermal_limit(int cluster, int max_core)
+{
+
+	struct sd_dbs_tuners *sd_tuners = g_sd_tuners;
+
+	if (sd_tuners->cpu_num_limit <=  max_core) {
+		sd_tuners->cpu_num_limit = max_core;
+		return 0;
+	}
+	sd_tuners->cpu_num_limit = max_core;
+	schedule_work_on(0, &unplug_request_work);
+
+	return 0;
+}
 
 static void __init sprd_hotplug_init(void)
 {

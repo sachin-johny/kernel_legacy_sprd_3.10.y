@@ -1858,6 +1858,29 @@ static struct notifier_block __refdata cpufreq_cpu_notifier = {
     .notifier_call = cpufreq_cpu_callback,
 };
 
+int cpufreq_thermal_limit(int cluster, int max_freq)
+{
+	unsigned int ret;
+	struct cpufreq_policy *policy, new_policy;
+	int cpu = 0;
+
+	cpu = cluster * 4;
+	policy = cpufreq_cpu_get(cpu);
+	if (!policy)
+		return -EINVAL;
+	if (policy->max == max_freq)
+		return 0;
+	ret = cpufreq_get_policy(&new_policy, policy->cpu);
+	if (ret)
+		return -EINVAL;
+	new_policy.max = max_freq;
+	ret = __cpufreq_set_policy(policy, &new_policy);
+	policy->user_policy.max = policy->max;
+
+	return ret;
+
+}
+
 /*********************************************************************
  *               REGISTER / UNREGISTER CPUFREQ DRIVER                *
  *********************************************************************/
