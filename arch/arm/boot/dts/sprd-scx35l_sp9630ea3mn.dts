@@ -952,5 +952,5 @@
 		&a_eic_gpio 4 0        /* cv state */
 		&a_eic_gpio 6 0		/* chg ovi */
 		&a_eic_gpio 9 0>;	/* battery detect */
-	rsense-real = <230>;
+	rsense-real = <213>;
 };
