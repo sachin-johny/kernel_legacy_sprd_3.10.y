@@ -490,7 +490,8 @@
 		#size-cells = <1>;
 		ranges = <0x09600000 0x89600000 0x4600000>,
 				<0x07800000 0x87800000 0x5B0000>,
-				<0x0dbff000 0x8dbff000 0x1000>;
+				<0x0dbff000 0x8dbff000 0x1000>,
+				<0x5000c000 0x5000c000 0x1000>;
 		sipc_lte@0x09600000 {
 			sprd,name = "sipc-lte";
 			sprd,dst = <5>;
@@ -500,19 +501,13 @@
 				<0x07800000 0x5B0000>, /* <SMEM_phy_addr total_size> */
 				<0x0dbff000 0x1000>; /* smsg ring buffer <base size> */
 		};
-	};
-
-        sctrl_pmic{
-                compatible = "sprd,sctrl";
-                sprd,name = "sctrl_pmic";
-                sprd,dst = <6>;
-                sprd,channel= <1>;
-		sprd,ringnr = <1>;
-                /* it's unnecessary to config IPI info upon mailbox arch */
-                mailbox,core = <1>;
-		sprd,ringbase = <0xf5429000>; /* SMSG ring mem base address*/
-                sprd,size-rxbuf = <0x0400>; /* 2*1024*/
-		sprd,size-txbuf = <0x0400>; /* 2*1024 */
+		sipc_pmsys@0x5000c000 {
+                        sprd,name = "sipc-pmsys";
+                        sprd,dst = <6>;
+                        /* it's unnecessary to config IPI info upon mailbox arch */
+                        mailbox,core = <1>;
+                        reg = <0x5000c000 0x1000>; /* smsg ring buffer <base size> */
+		};
 	};
 
 	saudio_lte{
