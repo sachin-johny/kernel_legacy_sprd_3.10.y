@@ -84,6 +84,30 @@ struct sensor_power_info_tag {
 	struct sensor_power dev2;
 };
 
+typedef enum {
+	SENSOR_OTP_PARAM_NORMAL = 0x00,
+	SENSOR_OTP_PARAM_CHECKSUM,
+	SENSOR_OTP_PARAM_READBYTE,
+	SENSOR_OTP_PARAM_FW_VERSION,
+	SENSOR_OTP_PARAM_TYPE_MAX
+} SENSOR_OTP_PARAM_TYPE_T;
+
+typedef struct _sensor_otp_data_info_tag {
+	uint32_t size;
+	void    *data_ptr;
+} SENSOR_OTP_DATA_INFO_T, *SENSOR_OTP_DATA_INFO_T_PTR;
+
+typedef struct _sensor_otp_param_tag {
+	uint32_t type;
+	uint32_t start_addr;
+	uint32_t len;
+	uint8_t *buff;
+	struct _sensor_otp_data_info_tag golden;
+	struct _sensor_otp_data_info_tag awb;
+	struct _sensor_otp_data_info_tag lsc;
+} SENSOR_OTP_PARAM_T, *SENSOR_OTP_PARAM_T_PTR;
+
+
 #define SENSOR_IOC_MAGIC			'R'
 
 #define SENSOR_IO_PD                _IOW(SENSOR_IOC_MAGIC,  0,  uint8_t)
