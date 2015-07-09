@@ -162,6 +162,7 @@ static ssize_t sprd_cproc_seg_dump(uint32_t base,uint32_t maxsz,
 		iounmap(vmem);
 		count -= copy_size;
 		loop ++;
+		buf += copy_size;
 	}while(count);
 	return total;
 }
@@ -302,6 +303,7 @@ static ssize_t cproc_proc_read(struct file *filp,
 			iounmap(vmem);
 			r -= copy_size;
 			i++;
+			buf += copy_size;
 		}while(r > 0);
 		/*remap and unmap in each read operation, shi yunlong, end*/
 	} else if (strcmp(type, "status") == 0) {
