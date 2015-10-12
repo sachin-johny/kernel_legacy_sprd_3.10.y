@@ -986,7 +986,15 @@ static inline void sprd_codec_pa_ldo_en(struct snd_soc_codec *codec, int on)
 		sprd_codec_pa_sw_clr(codec, SPRD_CODEC_PA_SW_AOL);
 	}
 }
-
+static inline void sprd_codec_pa_ovp_ldo_en(struct snd_soc_codec *codec, int on)
+{
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
+	mask = BIT(OVP_LDO_EN);
+	val = on ? mask : 0;
+	snd_soc_update_bits(codec, SOC_REG(PMUR2_PMUR1), mask, val);
+}
 static inline void sprd_codec_pa_ldo_v_sel(struct snd_soc_codec *codec,
 					   int v_sel)
 {
@@ -1115,7 +1123,9 @@ static int sprd_inter_speaker_pa(struct snd_soc_codec *codec, int on)
 	        if (sprd_codec->hp_ver != SPRD_CODEC_HP_PA_VER_2)
                     sprd_codec_pa_ovp_v_sel(codec, PA_OVP_465);
                 else
-                    sprd_codec_pa_ovp_v_sel(codec, PA_OVP_435);
+                    sprd_codec_pa_ovp_v_sel(codec, PA_OVP_450);
+		/*when ovp,use ldo instead of closing pa*/
+                sprd_codec_pa_ovp_ldo_en(codec,1);
                 sprd_codec_ovp_irq_enable(codec);
 		sprd_codec_pa_d_en(codec, p_setting->is_classD_mode);
 		sprd_codec_pa_demi_en(codec, p_setting->is_DEMI_mode);

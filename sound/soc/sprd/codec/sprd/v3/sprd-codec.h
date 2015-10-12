@@ -131,6 +131,7 @@
 #define PAR_SW_EN		(12)
 #define PAR_LDO_EN		(11)
 #define PAR_EN			(10)
+#define OVP_LDO_EN		(8)
 #define VB_EN			(7)
 #define VBO_EN			(6)
 #define HEADMICBIAS_EN		(5)
