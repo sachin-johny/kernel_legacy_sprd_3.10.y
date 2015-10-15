@@ -291,16 +291,14 @@ static int input_get_disposition(struct input_dev *dev,
 				break;
 			}
 
+#if defined(CONFIG_SPRD_DEBUG)
+			if(code != BTN_TOUCH) {
+				sprd_debug_check_crash_key(code,value);
+			}
+#endif
 			if (!!test_bit(code, dev->key) != !!value) {
 
 				__change_bit(code, dev->key);
-
-				#if defined(CONFIG_SPRD_DEBUG)
-					if(code != BTN_TOUCH) {
-						sprd_debug_check_crash_key(code,value);
-					}
-				#endif
-
 				disposition = INPUT_PASS_TO_HANDLERS;
 			}
 		}
